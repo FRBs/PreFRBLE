@@ -5,35 +5,10 @@ from Models import *
 
 
 
-## Probability / Likelihood Functions
-
-def ProbabilityFunction( v, bins=10  ):
-    v_min = min(v)
-    f = 0.3  ## factor to exceed non-zero range
-    hist = list(histogram( v, bins=bins, range=( v_min*(1.-f)**np.sign(v_min) , max(v)*(1.+f) ), density=True ))
-    hist[0] = hist[0].astype('f')/np.sum(hist[0])
-    return tuple(hist)
-
-
-
-def combine_Ps( P1, x1, P2, x2, loop=False ):
-    ## combine p.d.f. with values P1 and P2 at (equally spaced) x1 and x2, resp.
-    x = np.linspace(x1[0]+x2[0],x1[-1]+x2[-1], x1.size+x2.size-1)
-    if loop:
-        P = np.zeros(x.size)
-        for i, Pi in zip( x1, P1 ):
-            for j, Pj in zip( x2, P2 ):
-                P[ i+j == x ] += Pi*Pj
-    else:
-        Ps = np.dot( P1.reshape(P1.size,1), P2.reshape(1,P2.size) )
-        P=[]
-        for i in range(P1.size+P2.size-1):
-            P.append( np.sum( [ Ps[ min(i-j,P1.size-1), j+max(0,i-j-P1.size+1) ]  for j in range( max(0,1+i-P1.size), min(i+1,P2.size) ) ] ) )
-        P = np.array( P )
-    return P, x
-
+### Probability / Likelihood Functions
 
 def histogram( data, bins=10, range=None, density=None, log=False ):
+    ## compute histogram of data array, allows for log-scaled binning
     if log:
         if range is None:
             range = tuple( np.log10( [np.min(data), np.max(data) ] ) )
@@ -51,30 +26,43 @@ def histogram( data, bins=10, range=None, density=None, log=False ):
     return h, x
 
 
+def Histogram2Expectation( P, x, log=True, ):
+    if log:
+        x_log = np.log10(x)
+        x_ = x_log[:-1] + np.diff(x_log)/2
+    else:
+        x_ = x[:-1] + np.diff(x)/2
+    x_mean = np.average( x_, weights=P )
+    x_std = np.sqrt( np.sum( P*( x_ - x_mean)**2 ) / np.sum( P ) )
+    if log:
+        x_mean = 10.**x_mean
+    return x_mean, x_std
 
-## Physics
+
+### Physics
 
 def DispersionMeasure( density, distance, redshift, B_LoS=None ):
+    ## compute dispersion measure DM
     ### density in g/cm^3
     ### distance in kpc
     ###  B_LoS in G
     ## electron density = gas density / ( proton mass * electron weight )
-#    DM = density / (proton_mass * 1.16) * distance / (1 + redshift ) / kpc2cm * 1e-3 # cgs to pc / cm**3
     DM = density / (proton_mass * 1.16) * distance / (1 + redshift ) / kpc2cm * 1e3 # cgs to pc / cm**3
     if B_LoS is None:
         return DM
-#    RM = B_LoS * DM *1e3 *1e6 *1e4 # cgs to rad / m^2
+    ## if B_LoS is given, also compute the rotation measure
     RM = 0.81 * B_LoS * DM / (1+redshift) * 1e6 # rad / m^2
     return DM, RM
 
 def DispersionMeasureIntegral( density, distance, redshift, B_LoS=None, axis=None ):
+    ## compute disperion measure integral
     if B_LoS is None:
         DM = DispersionMeasure( density, distance, redshift )
         return np.sum( DM, axis=axis )
+    ## if B_LoS is given, also compute the rotation measure integral
     DM, RM = DispersionMeasure( density, distance, redshift, B_LoS )
     return np.sum( DM, axis=axis ), np.sum( RM, axis=axis )
 
-## Geometry 
 def GetDirection( x, y, z ):
     d = np.array( [ x[-1] - x[0], y[-1] - y[0], z[-1] - z[0] ] )
     return d / np.linalg.norm(d)
@@ -82,50 +70,16 @@ def GetDirection( x, y, z ):
 
 def GetBLoS( data, direction=None ):
     ## compute the LoS magnetic field for data of single ray
-    ## !!! needs to straighten out x,y,z for old far rays
     if direction is None:
         direction = GetDirection( data['x'], data['y'], data['z'] )
-#    return direction[0]*data['Bx']
-#    return data['By']
-#    return direction[1]
-#    return direction[2]*data['Bz']
     return np.dot( direction, np.array( [ data['Bx'], data['By'], data['Bz'] ] ) )
 
 
-def GetDirections( data, span=1):
-    # use average direction
-    x, y, z= data['x'], data['y'], data['z']
-    dx, dy, dz = np.diff(x[::3*span]), np.diff(y[::3*span]), np.diff(z[::3*span])
-    dx = np.append(dx, dx[-3:])
-    dy = np.append(dy, dy[-3:])
-    dz = np.append(dz, dz[-3:])
-    d = np.array( [ np.repeat(dx,3*span)[:x.size], np.repeat(dy,3*span)[:x.size], np.repeat(dz,3*span)[:x.size] ] )
-    d /= np.sum( d, axis=0, keepdims=True )
-    return d
 
-## combination
-
-def GetSamples( N, M, seed=42 ):
-    ## choose N samples of size M from N*M elements
-    RS = np.random.RandomState( seed )
-    X = N*M
-    indices = range( X )
-    samples = []
-    for n in range(N):
-        sample = []
-        for m in range(M):
-            i = RS.randint( X )
-            sample.append( indices[i] )
-            indices.pop(i)
-            X -= 1
-        samples.append(sample)
-    return samples
-
-
-## yt convenience functions
+### yt convenience functions
 
 def TimeSeries( model_dir ):
-    ## Reads full data series of model in model_dir
+    ## loads full data series of model in model_dir into yt
     if os.path.isfile( model_dir+'/DD0004/data0004.cpu0000'):
         ## whether written in cycle dumps
         series = model_dir+'/DD????/data????'  
@@ -138,29 +92,27 @@ def TimeSeries( model_dir ):
 
 
 def RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, redshift_accuracy ):
-    ## get redshifts of snapshots
+    ## read redshifts of snapshots in yt-TimeSeries ts
+    ## return redshift of snapshots, z_snaps, and redshifts that mark the transition between snapshots
     z_snaps = [ ds.current_redshift for ds in ts ]
     z_snaps.sort()
-    try:
-        i = np.where( np.round( z_snaps, redshift_accuracy ) >= redshift_max )[0][0]+1 
-        redshift_snapshots = z_snaps[:i]
-    except:
-        redshift_snapshots = z_snaps[:]
-#    redshift_snapshots = [ z for z in z_snaps if z <= redshift_max ]
-    if np.round(redshift_snapshots[0],redshift_accuracy) == 0: # if final snapshot at z=0, use it from half time since previous snapshot
+    ## cut all redshifts >= redshift_max
+    z_snaps = np.array(z_snaps)
+    redshift_snapshots = list( z_snaps[ np.where( z_snaps < redshift_max ) ] )
+    if np.round(redshift_snapshots[0],redshift_accuracy) == 0: 
+        # if final snapshot is at z=0, use it from half time since previous snapshot ( add redshift of transition to list )
         redshift_snapshots.append( redshift_trans )
     else:
-        redshift_snapshots.append( 0. )  ## use final snapshot until z=0
+        ## use final snapshot until z=0 (add 0 to list)
+        redshift_snapshots.append( 0. )  
     redshift_snapshots.append( redshift_max_near )
-
-#    if np.round(min(redshift_snapshots), 4) > 0:
-#        redshift_snapshots.append( 0. )  ## final redshift is always 0
 
     redshift_snapshots.sort()
     return z_snaps, redshift_snapshots
 
 def BoxFractions( ts, domain_width_code, redshift_snapshots ):
     ## get required max_box_fraction for each snapshot
+    ##   i. e. minimum number of transitions of simulation volume to reach redshift of next snapshot
     return [ int( np.ceil(
         (comoving_radial_distance(z0,z1)/min(ds.domain_width.in_units('cm'))).d / domain_width_code
     ) )
@@ -169,9 +121,11 @@ def BoxFractions( ts, domain_width_code, redshift_snapshots ):
 
 
 
-## file management
+### file management
 
 def Write2h5( filename, datas, keys ):
+    ## writes arrays listed in data to h5 file filename using the corresponding keys
+    ## overwrites previous entries
     if type(keys) is str:
         sys.exit( 'Write2h5 needs list of datas and keys' )
     with h5.File( filename, 'a' ) as f:
@@ -183,28 +137,32 @@ def Write2h5( filename, datas, keys ):
             f.create_dataset( key, data=data  )
             
 def KeyProbability( z, model, typ, nside, value, which ):
+    ## get key in probability_file
     return '/'.join( [ model, typ, str(nside), value, '%.4f' % z, which ] )
 
 def KeySkymap( z, model, typ, nside, value ):
+    ## get key in skymap_file
     return '/'.join( [ model, typ, str(nside), value, '%.4f' % z ] )
 
+def KeyNearRay( model, nside, value ):
+    return '/'.join( [ model, 'near',str(nside), key ] )
+
+
+def FileNearRay( ipix ):
+return root_rays + model + '/ray%i_%i.h5' % (ipix,npix)
 
             
 
 
-## data correction
+### data correction
 
-def LocateSteps( v, N=1e3 ):
-    ## locates discontinuities in 1D array :
-    ##   these are where there is strong change in the data, i.e.  dv[i-1] << dv[i] >> dv[i+1]
-    ##   locates all of these pronounced local maxima
-    dv = np.abs(np.diff(v)) / v[:-1]
-    return np.where( dv > 1. / N)[0] + 1 ## +1 to include step
 
-def CorrectionFactors( redshifts, redshift_snap ):
+def RedshiftCorrectionFactor( redshifts, redshift_snap ):
+    ## factor to correct redshift evolution
+    ## data is given for redshift of snaphost, replace by redshift along LoS
     return ( 1 + redshifts ) / (1+redshift_snap)
 
-def GetCorrectionFactors( data, far=False, steps=None ):
+def GetRedshiftCorrectionFactors( data, far=False, steps=None ):
     ## correct scaling factors to cure discontinuities due to change in snapshot
     ##   (values correct at steps, no evolution in snapshots)
     if steps is None:
@@ -218,7 +176,7 @@ def GetCorrectionFactors( data, far=False, steps=None ):
         
     a = []
     for s0, s1 in zip( steps, steps[1:] ):                            ## in each snapshot range,
-        a.extend( CorrectionFactors( data['redshift'][s0:s1+(s1==data['redshift'].size-1)], data['redshift'][s1-1 if np.round(np.abs(data['redshift'][s0]),3)>0 else 0] ) )
+        a.extend( RedshiftCorrectionFactor( data['redshift'][s0:s1+(s1==data['redshift'].size-1)], data['redshift'][s1-1 if np.round(np.abs(data['redshift'][s0]),3)>0 else 0] ) )
         ## choose norm at redshift of initial, correctly scaled value
 #        a0 = 1./(1+data['redshift'][s1-1 if np.round(np.abs(data['redshift'][s0]),3)>0 else 0]) # snapshot at z=0 has correct value at lowest reshift, others at highest
 #        a.extend( a0*( 1 + data['redshift'][s0:s1+(s1==data['redshift'].size-1)] ) ) ## compute the correcting scaling factors
@@ -228,56 +186,9 @@ def GetCorrectionFactors( data, far=False, steps=None ):
 
 
 
-## FRB_Likelihood convenience
+### FRB_Likelihood convenience
+### !!! tidy until here
 
-def GetRayData_old( model, fields, nside, redshift_initial, ipix, far=False, chopped=False, correct=True, directions=False, B_LoS=True ):
-    # returns written data of ipix'th ray in proper cgs units
-    with h5.File( rays_file ) as f:
-        typ = 'near'
-        if not ( chopped is False ):  ## chopped is redshift of snapshot from which to take ray
-            typ = 'chopped'
-        elif far:
-            typ = 'far'
-        print f['primordial'].keys()
-        print '/'.join([model,str(nside) if chopped is False else '%1.2f' % chopped, typ, str(ipix)])
-        g = f['/'.join([model,str(nside) if chopped is False else '%1.2f' % chopped, typ, str(ipix)])]
-        if np.round(g['redshift'].min(),6) < 0:  ## use positive redshift ~ -z for z << 1
-            g['redshift'][...] *= -1
-        if correct:
-            ## correcting scaling factor to obtain proper cgs units 
-            ###  !! discontinuities due to change in snapshot
-            a = GetCorrectionFactors( g, far=far )
-        else:
-            a = np.ones(g['redshift'].size)
-        
-        ## fields to read from the ray
-        field_types = fields[:]                 ## requested fields
-        field_types.extend(['redshift', 'dl'])  ## redshift and pathlengths
-        field_types.extend(['x', 'y', 'z'])     ## cell center positions
-        if directions:
-            field_types.extend(['dx', 'dy', 'dz'])  ## path vector components ## wrongly written, all identical
-
-        if B_LoS:
-            field_types.append('B_LoS')  ## line of sight magnetic field
-        
-
-        # create ordered array
-        # write all the fields
-        # in case, add BLoS
-        data = np.ones(g['dl'].shape, dtype=[ (field, 'float') for field in field_types ])
-        for field in field_types:
-            if not field is 'B_LoS':
-                data[field] = g[field]* ( a**-comoving_exponent[field]               ## data in proper cgs
-                                          if not 'B' in field else
-                                          ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )*a  ### B is written wrongly, hence needs special care
-                                      ) ** correct
-        if B_LoS:
-            data['B_LoS'] = GetBLoS( data )
-
-        data.sort( order='redshift')
-    return data
-
-#def ActualRedshift(redshift_last, data, z0, z_snap ):
 def ActualRedshift( dl, z0, z_snap, redshift_enter_last_snapshot, redshift_accuracy ):
     ## returns actual redshift of ray data when added to LoS with final redshift of z0
     ##   needs redshift of snapshot z_snap to correct the travelled length
@@ -310,8 +221,8 @@ import healpy as hp, time
 
 t0 = time.time()
 
-def GetChoppedRayData(model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_last, i,  redshift_accuracy, correct=True ):
-#def GetChoppedRayData(i, model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_last, correct=True ):
+def GetChoppedRayData(model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_trans, i,  redshift_accuracy, correct=True ):
+#def GetChoppedRayData(i, model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_trans, correct=True ):
     ## returns data of LoS combined from (randomly sampled) chopped rays
     ## generate random sampler
     if i % 30 == 0:
@@ -332,14 +243,14 @@ def GetChoppedRayData(model, fields, nside, redshift_initial, redshift_snapshots
             ##     read data of random ray
             data_ray = GetRayData(model, fields, nside, redshift_initial, i_ray, far=False, chopped=z_snap, correct=False )
             ##     correct the redshift
-            data_ray['redshift'] = ActualRedshift( data_ray['dl'], data_LoS['redshift'][-1], z_snap, redshift_last, redshift_accuracy )
+            data_ray['redshift'] = ActualRedshift( data_ray['dl'], data_LoS['redshift'][-1], z_snap, redshift_trans, redshift_accuracy )
             ##     add up on previous parts
             data_LoS = np.concatenate( [data_LoS, data_ray] )
         data_LoS = data_LoS[ data_LoS['redshift'] <= redshift_max ]
         steps.append( data_LoS['dl'].size )
         ## correct for z dependence
     if correct:
-        a = GetCorrectionFactors( data_LoS, steps=steps ) #np.array(redshift_snapshots)[np.arange(len(redshift_snapshots)) != 1] )
+        a = GetRedshiftCorrectionFactors( data_LoS, steps=steps ) #np.array(redshift_snapshots)[np.arange(len(redshift_snapshots)) != 1] )
         for field in data_LoS.dtype.fields:
             data_LoS[field] *= ( a**-comoving_exponent[field]               ## data in proper cgs
                                  if not 'B' in field else
@@ -349,16 +260,16 @@ def GetChoppedRayData(model, fields, nside, redshift_initial, redshift_snapshots
 
 
 def GetChoppedSegmentData(model, fields, nside, redshift_initial, i_segment, redshift_snapshot, redshift_start, correct=True ):
-#def GetChoppedRayData(i, model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_last, correct=True ):
+#def GetChoppedRayData(i, model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_trans, correct=True ):
     ## returns data of LoS segment in z_snap snapshot, starting from z
 
     ## read raw data of output
     data = GetRayData(model, fields, nside, redshift_initial, i_segment, far=False, chopped=redshift_snapshot, correct=False )
     ## correct redshift
-    data['redshift'] = ActualRedshift( data['dl'], redshift_start, redshift_snapshot, redshift_last, redshift_accuracy )
+    data['redshift'] = ActualRedshift( data['dl'], redshift_start, redshift_snapshot, redshift_trans, redshift_accuracy )
     ## in case, correct data
     if correct:
-        a = CorrectionFactors( data['redshift'], redshift_snapshot )
+        a = RedshiftCorrectionFactor( data['redshift'], redshift_snapshot )
         for field in data.dtype.fields:
             data[field] *= ( a**-comoving_exponent[field]               ## data in proper cgs
                                  if not 'B' in field else
@@ -369,11 +280,11 @@ def GetChoppedSegmentData(model, fields, nside, redshift_initial, i_segment, red
 
 
 
-def GetFarNearRayData(model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_last, ipix, correct=True, directions=False, chopped=False ):
+def GetFarNearRayData(model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_trans, ipix, correct=True, directions=False, chopped=False ):
         ## reads and combines (scaling corrected) data of near (z=0) and far (z>0) LoS to single ordered arrays
     data_near = GetRayData(model, fields, nside, redshift_initial, ipix, model=model, far=False, correct=correct, directions=directions )
     if chopped:
-        data_far = GetChoppedRayData(model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_last, i, correct=correct )        
+        data_far = GetChoppedRayData(model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_trans, i, correct=correct )        
     else:
         data_far = GetRayData(model, fields, nside, redshift_initial, ipix, model=model, far=True, correct=correct, directions=directions )
     data = np.concatenate( (data_near, data_far) )

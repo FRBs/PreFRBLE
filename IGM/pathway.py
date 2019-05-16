@@ -1,5 +1,4 @@
 root = '/work/stuf315/'
-#root = '/hummel/'
 root_FRB = root + 'FRB/'
 root_data = root + 'enzo/gas_plus_dm_'
 root_data = root + 'MHD-models/clues/2018/'
