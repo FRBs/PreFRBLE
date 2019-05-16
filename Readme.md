@@ -8,14 +8,14 @@ Package is currently under construction, await amazing results soon!!!
 List of models that are currently included:
 
 Source:
- - magnetar, uniform / stellar wind environment, Piro & Gaensler 2018
+ - magnetar, uniform / stellar wind environment (Piro & Gaensler 2018)
 
 Host Galaxy:
- - MW-like spiral galaxy, NE2001 & JF12
- - starburst dwarf galaxy, Heesen et al. 2011
+ - MW-like spiral galaxy, (NE2001 & JF12)
+ - starburst dwarf galaxy, (Heesen et al. 2011)
 
 Inter Galactic Medium:
- - constrained MHD models with primordial / astrophysical origin of intergalactic magnetic fields, Hackstein et al. 2018, Vazza et al. 2018
+ - constrained MHD models with primordial / astrophysical origin of intergalactic magnetic fields, (Hackstein et al. 2018, Vazza et al. 2018)
 
 Milky Way:
  - NE2001 & JF12
