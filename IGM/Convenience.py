@@ -1,3 +1,9 @@
+'''
+Convenient functions
+
+'''
+
+
 import numpy as np, yt, os, h5py as h5, sys
 
 from Physics import *

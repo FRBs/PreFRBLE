@@ -1,3 +1,9 @@
+'''
+List of Parameters used for the analysis
+
+'''
+
+
 import healpy as hp, numpy as np, os
 from Models import *
 from Physics import *
@@ -22,6 +28,10 @@ N_workers_MakeChoppedRays = 12  ## make reasonable choice, number of maximum per
 N_workers_ReadRays = 16  ##   "-"  , based on ray distance, resolution and memory
 
 fields = ['Density','Bx', 'By', 'Bz']   ## fields of interest to calculate DM, RM & SM
+
+
+
+#########  dependend paramters, change with caution ########
 
 ## model parameters
 model = models[model_tag][0]

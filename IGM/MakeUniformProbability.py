@@ -1,3 +1,11 @@
+'''
+Obtain and compare P(RM) for the different models presented in Hackstein et al. 2018, available for download at https://crpropa.desy.de/ under "Additional Ressources"
+these are given as data grid with uniform resolution, deduced from the final snapshot at z=0
+the density distribution is the same for all the models, hence no investigation of DM or SM
+
+'''
+
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -6,9 +14,6 @@ from Convenience import *
 from Physics import *
 import numpy as np
 
-### compare RM results for the different models presented in Hackstein et al. 2018, available for download at https://crpropa.desy.de/ under "Additional Ressources"
-### these are given as data grid with uniform resolution, deduced from the final snapshot at z=0
-### the density distribution is the same for all the models, hence no investigation of DM or SM
 
 
 root_data = root+'MHD-models/clues/'

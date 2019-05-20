@@ -1,3 +1,9 @@
+'''
+specific parameters for the IGM models
+
+'''
+
+
 from pathway import *
 import numpy as np
 

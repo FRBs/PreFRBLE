@@ -1,7 +1,11 @@
+'''
+folder organization
+
+'''
+
 root = '/work/stuf315/'
-root_FRB = root + 'FRB/'
-root_data = root + 'enzo/gas_plus_dm_'
-root_data = root + 'MHD-models/clues/2018/'
-root_rays = root_FRB + 'rays/'
-root_skymaps = root_FRB+'skymaps/'
-root_probabilities = root_FRB+'probabilities/'
+root_data = root + 'MHD-models/clues/2018/'    ## IGM model data
+root_FRB = root + 'FRB/'                       ## FRB results
+root_rays = root_FRB + 'rays/'                 ## LightRay temp-files
+root_skymaps = root_FRB+'skymaps/'             ## plots of full-sky maps
+root_probabilities = root_FRB+'probabilities/' ## plots of probablity functions

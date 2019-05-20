@@ -1,3 +1,16 @@
+'''
+
+Procedures to
+ - obtain data from cells along the LoS
+ - compute DM, RM and SM LoS integrals
+ - 
+
+for 'near" (within constrained volume) and "chopped" (high redshift) LoS.
+"chopped" LoS exceed the constrained volume, as they traverse the simulation volume multiple times. They are obtained by stacking randomly oriented segments. The LoS is chopped in pieces.
+
+'''
+
+
 import numpy as np, yt, os, h5py as h5, healpy as hp, multiprocessing, time
 import matplotlib.pyplot as plt
 from glob import glob

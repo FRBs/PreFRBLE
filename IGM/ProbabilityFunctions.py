@@ -1,3 +1,11 @@
+'''
+Procedures to 
+ - compute the probablity function for "near" and "chopped" LoS
+ - read probability functions from file (!!! remove, double ???)
+
+'''
+
+
 from Models import *
 from Parameters import *
 from Skymaps import GetSkymap

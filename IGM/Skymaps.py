@@ -1,3 +1,7 @@
+'''
+compute skymaps for the results of "near" LoS
+'''
+
 from Physics import *
 from Parameters import *
 from Models import *
