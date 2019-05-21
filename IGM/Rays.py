@@ -37,15 +37,6 @@ keys = {
     'chopped' : '/'.join(['',model_tag, 'chopped' ] ),
 }
 
-def CollectRay_old( filename, key_new, remove=True ):
-    ## write h5 of single ray to rays_file
-    with h5.File( filename, 'r' ) as fil:  ##     open ray file
-        f = fil['grid']
-        for key in f.keys():          ##     for each data field
-            new_key = '/'.join( [ key_new, key ] )
-            Write2h5( rays_file, [f[key].value], [new_key] )
-    if remove:
-        os.remove( filename )             ##       remove ray file
 
 def CollectRays( typ, remove=True ):
     ## collect all files with single rays in constrained volume to rays_file
@@ -66,9 +57,7 @@ def CollectRays( typ, remove=True ):
         for ipix in range( npix ):
             ## consider all possible directions
             CollectRay( ipix, remove=remove )
-#            CollectRay( file_name+'%i_%i.h5' % (ipix,npix),
-#                        '/'.join( [ keys[typ], str(ipix) ] )
-#            )
+
 
 
 def CollectRay( ipix, remove=True ):
@@ -88,7 +77,7 @@ def CollectRay( ipix, remove=True ):
             
         
 
-def MakeNearRay( ipix, lr=None, observer_position=observer_position, collect=False ):
+def MakeNearRay( ipix, lr=None, observer_position=observer_position, collect=False ):  
     ## reads data of LoS in constrained spherical volume around observer in z=0 snapshot
     ### provide lr = Lightray( dsz0 ) for pool computation
     
@@ -123,9 +112,10 @@ def MakeNearRay( ipix, lr=None, observer_position=observer_position, collect=Fal
         CollectRay( ipix )
 
 
+
 def MakeNearRays( start_position=observer_position ):  ## works
     ## computes LoS in the last (z=0) snapshot until they leave the volume
-    ##   in all directions from given start_position defined by a healpix map 
+    ##   in all directions from given start_position, direction defined by a healpix map, distance is maximum distance within constrained volume, i. e. 0.5*edgelength
     ## saves them to .h5 files
     
     ## make LightRay object of first data set with redshift = 0
@@ -141,156 +131,25 @@ def MakeNearRays( start_position=observer_position ):  ## works
 
 
 
-def MakeChoppedRayData( i_snap, i, lr=None, filename=None  ):
-#    if filename is None:
-#        filename = root_rays + model + '/ray_z%1.2f_%i.h5' % ( redshift_snapshots[i_snap+1], i )
-    if lr is None:
-        lr = LightRay( ts[i_snap] )
-
-    RS = np.random.RandomState( seed * ( 1 + i + i_snap*N_choppers[i_snap] ) )
-
-    ##     find start & end within border, such that distance > minimum trajectory length
-    start_position, end_position = np.zeros((2,3))
-    while np.linalg.norm( end_position - start_position ) < traj_length_min:  
-        for j in range(3):
-            start_position[j], end_position[j] = RS.random_sample(2) * ( border[1][j] - border[0][j] ) + border[0][j]
-
-    ## compute LoS and save to .h5 file
-    return lr.make_light_ray(   
-        start_position = start_position,
-        end_position = end_position, 
-        data_filename = filename,
-        fields = fields[:],
-        use_peculiar_velocity=False,  # do not correct redshift for doppler shift from peculiar velocity  
-    )
-
-def MakeChoppedRay( i_snap, i, lr=None, collect=False, force=False  ):
-    filename = root_rays + model + '/ray_z%1.2f_%i.h5' % ( redshift_snapshots[i_snap+1], i )
-    key = '/'.join( [ keys['chopped'], '%1.2f' % redshift_snapshots[i_snap+1],  str(i) ] )
-    ## check if file exists
-    exists = os.path.isfile( filename )
-    with h5.File( rays_file ) as f:
-        try:  ## see if is stored in collected file
-            g = f[key]
-            exists = True
-        except:
-            pass
-
-    ## compute if it hasn't beend computed before or you force it
-    if exists and not force:
-        print 'I already know %s' % key
-    else:
-        MakeChopperRayData( i_snap, i, lr=lr, filename=filename )
-        if lr is None:
-            lr = LightRay( ts[i_snap] )
-
-        RS = np.random.RandomState( seed * ( 1 + i + i_snap*N_choppers[i_snap] ) )
-
-        ##     find start & end within border, such that distance > minimum trajectory length
-        start_position, end_position = np.zeros((2,3))
-        while np.linalg.norm( end_position - start_position ) < traj_length_min:  
-            for j in range(3):
-                start_position[j], end_position[j] = RS.random_sample(2) * ( border[1][j] - border[0][j] ) + border[0][j]
-
-        ## compute LoS and save to .h5 file
-        lr.make_light_ray(   
-            start_position = start_position,
-            end_position = end_position, 
-            data_filename = filename,
-            fields = fields[:],
-            use_peculiar_velocity=False,  # do not correct redshift for doppler shift from peculiar velocity  
-        )
-        ## write to collecting file
-        if collect:
-            CollectRay( filename, key )
 
 
 
 
-def MakeChoppedRaysSnapshot( i_snap, pool=None, force=False ): 
-    ## produces N trajectories within given snapshot
-    ##   load the corresponding snapshot to LightRay
-    no_pool = False
-    if pool is None:
-        pool = multiprocessing.Pool()
-        no_pool = True
-
-    f = partial( MakeChoppedRay, i_snap, force=force ) #, lr=lr )
-    pool.map( f , trange( N_choppers_total[i_snap] ) )
-
-    if no_pool:
-        pool.close()
-        pool.join()
-    return pool
-
-def MakeChoppedRays( force=False ): 
-    ## produces N trajectories within each snapshot
-
-    pool = multiprocessing.Pool()
-    pools = []
-    for i_snap in trange( len(redshift_snapshots[1:-1]) ):
-        pools.append( MakeChoppedRaysSnapshot( i_snap, pool=pool, force=force ) )
-    for p in pools:
-        p.close()
-        p.join()
-    time.sleep(5)
-    CollectRays( 'chopped' )
-
-        
-def MakeFarRay( ipix, collect=True ):
-    lr = LightRay(   # load LightRay model for each ray to use different seed
-        param_file,  
-        simulation_type="Enzo",
-        near_redshift=redshift_max_near, ## in this redshift range  !!!!
-        far_redshift=min( redshift_max, ds0.current_redshift ),
-        find_outputs=True,     # find the snapshots
-    )
-    filename = root_rays + model + '/ray_far%i_%i.h5' % (i,npix)
-    lr.make_light_ray( # compute LoS and save to .h5
-        seed= ipix*seed,
-        fields=fields[:],
-        data_filename = filename,
-        use_peculiar_velocity=False,  # do not correct redshift for doppler shift from peculiar velocity  
-    )
-    ## write to collecting file
-    if collect:
-        CollectRay( filename, '/'.join( [ keys['far'],  str(ipix) ] ) )
-    return;
-
-def MakeFarRays(self) : 
-    ## computes LoS in all z>0 snapshots 
-    ##   random start_position and direction, one for each cell in a healpix map 
-    ## saves them to .h5 files
-
-    ## make LightRay object in all directions and snapshots of simulation
-    f = partial( MakeFarRay, collect=False )
-    pool = multiprocessing.Pool()
-    pool.map( f, trange( npix ) )
-    pool.close()
-    pool.join()
-    CollectRays( 'far' )
-
-
-
-def GetRayData( ipix, typ, model=model, redshift_initial=redshift_initial, correct=True, B_LoS=True ):
-    ## returns full ray data of far or near ray or chopped segment ( typ indicates redshift of snapshot
+def GetNearRayData( ipix, model=model, redshift_initial=redshift_initial, correct=True, B_LoS=True ):
+    ## returns raw ray data of near ray in rays_file
     with h5.File( rays_file ) as f:
     ## open data of interest in rays file
-        if typ in ['far','near']:
-            g = f[ '/'.join( [ keys[typ], str(ipix) ] ) ]
-        else:
-            g = f[ '/'.join( [ keys['chopped'], '%1.2f' % typ, str(ipix) ] ) ]
-            correct=False
+        g = f[ '/'.join( [ keys['near'], str(ipix) ] ) ]
         z = g['redshift'].value
 
-        ## use positive redshift ~ -z for z << 1
+        ## use positive redshift ~ -z for z << 1   !!! remove, since not needed ???
         if np.round(z.min(),6) < 0:  
             z *= -1
 #            g['redshift'][...] *= -1
             g['redshift'][...] -= g['redshift'][...].min()
 
         field_types = fields[:]                 ## requested fields
-        field_types.extend(['redshift', 'dl'])  ## redshift and pathlengths
+        field_types.extend(['redshift', 'dl'])  ## redshift and pathlengths within cell
         field_types.extend(['x', 'y', 'z'])     ## cell center positions
         if B_LoS:
             field_types.append('B_LoS')  ## line of sight magnetic field
@@ -298,274 +157,34 @@ def GetRayData( ipix, typ, model=model, redshift_initial=redshift_initial, corre
         data = np.zeros(g['dl'].shape, dtype=[ (field, 'float') for field in field_types ])
 
         if correct:
-            ## correcting scaling factor to obtain proper cgs units 
-            ###  !! discontinuities due to change in snapshot
-            a = GetRedshiftCorrectionFactors( g, far=typ == 'far' )
+            ## correct values for smooth evolution of proper values with redshift
+            ##   correct scaling factor in final snapshot
+            a = RedshiftCorrectionFactors( z, z_snaps[0] )
 
+            ## for all fields of interest
             for field in field_types:
+                ## except for B_LoS, which is not yet computed, hence not in g
                 if not field is 'B_LoS':
+                    ## apply the correct scaling factor
                     data[field] = g[field]* ( a**-comoving_exponent[field]               ## data in proper cgs
                                               if not 'B' in field else
                                               ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )*a  ### B is written wrongly, hence needs special care
-                                          ) #** correct
+                                          )
 
         else:
+            ## read the fields of interest without redshift evolution
             for field in field_types:
                 if not field is 'B_LoS':
                     data[field] = g[field]
 
             
-        if B_LoS:
-            if typ == 'near':  ## for constrained ray, get the direction from healpix
-                direction = np.array( hp.pix2vec( nside, ipix ) )
-            else:
-                direction = GetDirection( g['x'].value, g['y'].value, g['z'].value )  ## correctly scaled data results in wrong direction, use raw data instead
+        if B_LoS:  ## calculate magnetic field along LoS
+            ## get the direction from healpix
+            direction = np.array( hp.pix2vec( nside, ipix ) )
             data['B_LoS'] = GetBLoS( data, direction=direction )
 
         data.sort( order='redshift')
     return data
-
-
-## !!!!! think different: saving rays takes too much space, compute DMRMray on the fly and write that to file
-
-def GetChoppedRayData( ipix, i_snap, model=model, redshift_initial=redshift_initial, B_LoS=True ):
-
-    filename = root_rays + model + '/ray_z%1.2f_%i.h5' % ( redshift_snapshots[i_snap+1], ipix )
-    data = MakeChoppedRayData( i_snap, ipix )
-    if B_LoS:
-        data['B_LoS'] = GetBLoS( data )
-
-    data.sort( order='redshift')
-    return data
-
-
-            
-def GetChoppedSegmentData( i_segment, i_snap, redshift_start, model=model, redshift_initial=redshift_initial, correct=True ):
-#def GetChoppedRayData(i, model, fields, nside, redshift_initial, redshift_snapshots, N_choppers, redshift_max, redshift_trans, correct=True ):
-    ## returns data of LoS segment in z_snap snapshot, starting from z
-
-    redshift_snapshot = z_snaps[ i_snap ]
-    ## read raw data of output
-    data = GetChoppedRayData(i_segment, i_snap, model=model, redshift_initial=redshift_initial )
-    ## correct redshift
-    data['redshift'] = ActualRedshift( data['dl'], redshift_start, redshift_snapshot, redshift_trans, redshift_accuracy )
-    ## in case, correct data
-    if correct:
-        a = RedshiftCorrectionFactor( data['redshift'], redshift_snapshot )
-        for field in data.dtype.fields:
-            data[field] *= ( a**-comoving_exponent[field]               ## data in proper cgs
-                                 if not 'B' in field else ### B is written wrongly, hence needs special care
-                                 a*( ( 1+data['redshift'][:] ) / (1+redshift_initial) ) 
-                             )
-    
-    return data
-
-
-def GetChoppedRayData_partly( ipix, redshift_start, redshift_end, sample, model=model, redshift_initial=redshift_initial, redshift_snapshots=redshift_snapshots, correct=True ):
-    ## returns data of LoS from redshift_start to _end composed of randomly oriented segments
-
-    ## if redshift_start = 0: start with near (constrained) ray
-    z0 = redshift_start
-    if z0 == 0:
-        data = GetRayData( ipix, 'near', model=model, redshift_initial=redshift_initial )
-        z0 = data['redshift'][-1]
-    else:
-        data = None
-    ## while LoS hasn't reached full length
-    while z0 < redshift_end:
-    ##   read data of following ray
-    ##     needs redshift when snapshot was written, this is first redshift of snapshots that is greater than the segments. Except for first snapshot, which is used until redshift_snapshots[1] and has z=0
-        i_snap = np.where( np.array( redshift_snapshots[2:] ) > z0 )[0][0]
-        z_snap = z_snaps[ i_snap ]
-#        z_snap = redshift_snapshots[ ix ] if ix > 2 else 0.
-        data_segment = GetChoppedSegmentData( ipix, i_snap, z0, model=model, redshift_initial=redshift_initial )
-    ##   concatenate with previous data
-        data = np.concatenate( [ data, data_segment ] ) if data is not None else data_segment
-        ## if segment overshoots redshift of snapshot, cut that (instead continue with following snapshot
-        if data_segment['redshift'][-1] > z_snap:
-            data = data[ data['redshift'] <= z_snap ]
-        
-        z0 = data['redshift'][-1]
-        print 'current redshift %f' % z0
-    ## return data of LoS ( cut off part of final segment that overshoots the distance )
-    return data[ data['redshift'] <= redshift_end ]
-
-
-def CollectDMRMRay( DMRM, key_new ):
-    Write2h5( DMRMrays_file, DMRM, [ '/'.join( [ key_new, key ] ) for key in ['DM','RM'] ] )
-
-def MakeDMRMRay( ipix, collect=True ):
-#    global samples
-#    sample = samples[ipix][:]
-    ## returns DM & RM along a single LoS ( chopped in segments )
-    DMRM = np.zeros( [2, len(redshift_skymaps[1:])] )
-    iz = 0
-    for z0, z in zip( redshift_skymaps, redshift_skymaps[1:] ):
-        data = GetChoppedRayData_partly( ipix, z0, z1, sample )
-        DMRM[:,iz] = GetDMRM( data, [z0,z1] )
-        iz += 1
-    if collect:
-        CollectDMRMRay( DM, '/'.join( [ keys['chopped'],  str(ipix)] ) )
-    return DMRM
-
-def MakeDMRMRays():
-    pool = multiprocessing.Pool()
-    pool.map(  MakeDMRMRay, trange( npix ) )
-
-
-
-
-
-
-
-
-
-
-
-
-from trident import make_simple_ray
-
-def GetDataChoppedSegment( i, ipix, i_snap, redshift, correct=True, B_LoS=True, lr=None, RS=None ):
-    ## return data array of i'th ray segment in i_snap'th snapshot starting at redshift (going forward in time)
-    if RS is None:
-        RS = np.random.RandomState( seed * ( 1 + i + i_snap*N_choppers[i_snap] ) )
-    start_position, end_position = np.zeros((2,3))
-    while np.linalg.norm( end_position - start_position ) < traj_length_min:
-            for j in range(3):
-                start_position[j], end_position[j] = RS.random_sample(2) * ( border[1][j] - border[0][j] ) + border[0][j]
-    field_types = fields[:]                 ## requested fields
-    field_types.extend(['redshift', 'dl'])  ## redshift and pathlengths
-    field_types.extend(['x', 'y', 'z'])     ## cell center positions
-    if lr is None:
-        ray = make_simple_ray(
-            ts[i_snap],
-            start_position=start_position,
-            end_position=end_position,
-            fields=[ ('enzo',field) for field in fields[:] ],
-            redshift=redshift
-        )
-        ## ray -> data (ordered array of fields of interest)
-        g = ray.covering_grid( 0, [0.,0.,0.], ray.domain_dimensions, field_types)
-    else:
-        filename = "%s%s/ray_seg%i.h5" % ( root_rays, model, RS.randint( 9999999999 ) )
-#        filename = "%s%s/ray_seg%i.h5" % ( root_rays, model, 1 + i + i_snap*N_choppers[i_snap*(1+ipix)  ] ) 
-        lr.make_light_ray(
-            start_position=start_position,
-            end_position=end_position,
-            fields=[ ('enzo',field) for field in fields[:] ],
-            redshift=redshift,
-            data_filename=filename
-        )
-        g = h5.File( filename )['grid']
-        os.remove( filename )
-
-    if B_LoS:
-        field_types.append('B_LoS')  ## line of sight magnetic field                
-
-    data = np.zeros(g['dl'].shape, dtype=[ (field, 'float') for field in field_types ])
-    ## correct data (redshift dependence and magnetic field error)
-    if correct:
-        ## correcting scaling factor to obtain proper cgs units
-        a = GetRedshiftCorrectionFactors( g )
-
-        for field in field_types:
-            if not field is 'B_LoS':
-                data[field] = g[field].value* ( a**-comoving_exponent[field]               ## data in proper cgs                                                                                               
-                                            if not 'B' in field else
-                                            ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )*a  ### B is written wrongly, hence needs special care                                                        
-                                        ) ** correct
-
-        else:
-            for field in field_types:
-                if not field is 'B_LoS':
-                    data[field] = g[field].value
-
-    ## add B_LoS
-    if B_LoS:
-        data['B_LoS'] = GetBLoS( data )
-#        ray.add_field( 'B_LoS', function=AddBLoS )  ## !!!!
-
-    return data
-
-
-
-
-def MakeChoppedDMRMRay(  ipix, force=False ):
-    ## reads full chopped LoS from simulation data, computes the observables of the segments between redshift of interest and writes them to DMRMrays_file
-    print 'MakeRay'
-    ## check whether ray was computed already
-    if not force:
-        key = '/'.join( ['',model,'chopped',str(seed),str(ipix),'DM'] )
-        try:
-            d = h5.File( DMRMrays_file )[key]
-            print 'already got %s' % key
-            return;
-        except:
-            pass
-    ## produces DMRM values between redshifts of skymaps
-    DMRM = np.zeros([2,len(redshift_skymaps)-1])
-    ## starting from highest redshift
-    i_snap_ = -1
-    RS = np.random.RandomState( seed*( 1+ipix) )
-    for i_map in range(len(redshift_skymaps)-1)[::-1]:
-        z = redshift_skymaps[i_map+1]
-    ## find index of corresponding snapshot ( two additional redshifts added between last two  snapshots, ignore first two to find correct index )
-        i_snap = np.where( np.round( redshift_snapshots[2:], redshift_accuracy ) >= z )[0][0]
-        if i_snap != i_snap_: # when enter new snapshot, initiate new LightRay object
-            lr = LightRay( ts[i_snap] )
-            i_snap_ = i_snap
-            i_segment = 0
-        i_segment += 1
-#            sample = samples[i_snap][ipix][:]
-    ## until redshift of next skymap is reached
-        while z > redshift_skymaps[i_map]:
-    ## get data of chopped segments
-            data = GetDataChoppedSegment( i_segment, ipix, i_snap, z, lr=lr, RS=RS )
-#            data = GetDataChoppedSegment( RS.randint( npix ), i_snap, z, lr=lr, RS=RS )
-            z = data['redshift'][-1]
-    ## cut possible overshoot
-            if z < redshift_skymaps[i_map]:
-                data = data[ data['redshift'] > redshift_skymaps[i_map] ]
-                z = redshift_skymaps[i_map]
-    ## add up DM and RM
-        DMRM[:,i_map] +=  DispersionMeasureIntegral( data['Density'], data['dl'], data['redshift'], data['B_LoS'] )
-#        DMRM[:,i_map] +=  DispersionMeasure( data['Density'], data['dl'], data['redshift'], data['B_LoS'] )
-        print 'redshift', z, 'snap', i_snap, 'redshift snap', redshift_snapshots[i_snap+2]
-    ## save to file
-    ## collect files afterwards to allow parallel computation
-    filename = [ '%s%s/ray%s_%i.dat' % ( root_rays, model, typ, ipix ) for typ in ['DM', 'RM'] ]
-    for v, f in zip( DMRM, filename ):
-        v.tofile( f ) #, sep=' ' )
-    return;
-
-def CollectChoppedDMRMRays():
-    ## collect all files with single rays at high redshift to DMRMrays_file
-    for typ in ['DM','RM']:
-        for f_ray in glob( root_rays+model+'/*%s*.dat' % typ ):
-            ipix = f_ray.split('_')[-1].split('.')[0]
-            key = '/'.join( ['',model,'chopped',str(seed),str(ipix),typ] )
-            Write2h5( DMRMrays_file, [np.fromfile( f_ray )], [key] )
-            os.remove( f_ray )
-
-
-def MakeChoppedDMRMRays( part=None ):
-    ## create segments of LoS through several snapshots at different redshift
-    pool = multiprocessing.Pool(N_workers_MakeChoppedRays)
-    if part is None:
-        ## create as many LoS as cells on the healpix skymap !!! not recommended, requires huge amount of storage 
-        r = range( npix )
-    else:
-        ## optionally create LoS numbered by part = [ipix_start,ipix_end+1]
-        r = range( *part )
-    pool.map( MakeChoppedDMRMRay, r )
-    pool.close()
-    pool.join()
-    
-
-
-
-
-
 
 
 
@@ -576,30 +195,39 @@ def FilenameSegment( ipix, n ):
     return root_rays+model+'/ray_segment%03i_pix%05i.h5' % ( n, ipix )
 
 
-def CreateSegment( lr, RS, redshift, n, ipix ):
+
+def CreateSegment( lr, RS, redshift, n, ipix, length_minimum=0.5 ):
+    ## create segment from LightRay object lr, with random orientation from random state RS, starting at redshift
+    ## n is the number of the current segment, ipix is the index of the LoS it belongs to
     filename = FilenameSegment( ipix, n )
+    ## find random start & end positin of the segment, with distance longer than length_minimum [relative to shortest border]
     length=0
-    while length < 0.5:
+    while length < length_minimum:
+        ## find random start position within border
         start_position = RS.random_sample(3) * ( border[1] - border[0] ) + border[0]
+        ## find random direction
         phi = RS.uniform( 0, 2*np.pi )
         theta = np.arccos( RS.uniform( -1, 1 ) )
-#        theta = RS.uniform( 0, np.pi )
-#        phi = RS.uniform( 1e-6, 2*np.pi-1e-6 )
-#        theta = np.arccos( RS.uniform( -1+1e-6, 1-1e-6 ) )
-        length = RS.uniform( min(border[1]-border[0])/2, np.linalg.norm( border[1]-border[0] ) )
         direction =  np.array( [np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta) ] )
+        ## find random length of the segment
+        length = RS.uniform( min(border[1]-border[0])*length_minimum, np.linalg.norm( border[1]-border[0] ) )
+        ## calculate end position
         end_position = start_position + length * direction
     
+        ## check whether 
         ## reduce length, such that the LoS doesnt overshoot the probed volume
         for i in range(3): ## in each direction
             if border[0][i] > end_position[i]:   ## if border is exceeded
-                length = min( [ length, ( border[0][i] - start_position[i] ) / direction[i] ] )  ## reduce length to hit that border
+                length *=   ( border[0][i] - start_position[i] ) / ( length*direction[i] )  ## reduce length to hit that border, l = l * b_i/l_i
             elif border[1][i] < end_position[i]: ## at both sides
-                length = min( [ length, ( border[1][i] - start_position[i] ) / direction[i] ] )
+                length *= - ( border[1][i] - start_position[i] ) / ( length*direction[i] )  ## reduce length to hit that border, l = l * b_i/l_i
         ## correct end position with reduced length
         end_position = start_position + length * direction
-#        print 'start', start_position, 'end', end_position, 'direction', direction, 'length', length
-        
+
+        ## redo if length < length_minimum
+
+#    print 'start', start_position, 'end', end_position, 'direction', direction, 'length', length
+    ## create ray segment
     lr.make_light_ray(
         start_position=start_position,
         end_position=end_position,
@@ -611,9 +239,15 @@ def CreateSegment( lr, RS, redshift, n, ipix ):
     )
     return;
 
+
+
+
+
 ## create rays
-#def CreateChoppedRaySegments( ipixs ):
 def CreateChoppedRaySegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift_max=redshift_max, ts=ts[:], redshift_accuracy=redshift_accuracy, seed=seed, force=False ):
+    ## creates files with random segments of LoS data of ray through yt-TimeSeries ts that contains grid data of snapshots at redshift_snapshots
+    ## ipixs is a list of the indices given to the rays, defines how many rays are produced
+
 
     ## if not forced to, produce ray only if its data isn't already written to file
     if not force:
@@ -627,10 +261,11 @@ def CreateChoppedRaySegments( ipixs, redshift_snapshots=redshift_snapshots[:], r
                         pass
         except:
             pass
+        ## prevent the case of call eith empty ipixs
         if len(ipixs) == 0:
             return;
 
-    ## exclude constrained near ray, go to z=0 instead
+    ## exclude constrained near ray, go to z=0 instead  !!! remove completely
     try:
         redshift_snapshots.remove( redshift_max_near )
     except:
@@ -654,19 +289,20 @@ def CreateChoppedRaySegments( ipixs, redshift_snapshots=redshift_snapshots[:], r
     ##    skip those that finished current snapshot
                 if not flags[i_flag]:
                     continue
-    ##    in later rounds, for each read final redshift from previous and continue with that
+    ##    in later rounds: for each, read final redshift from previous and continue with that
                 if not new:
                     redshift = h5.File( FilenameSegment( ipix, n[i_flag]-1 ) )['grid/redshift'].value[-1]
     ##    in case redshift is past next snapshot, skip and deflag
                     if redshift <= redshift_snapshots[i_snap]:  ###!!!!
                         flags[i_flag] = 0
                         continue
-                print 'make segment from z=%.4f' % redshift
+#                print 'make segment from z=%.4f' % redshift
                 CreateSegment( lr, RS, redshift, n[i_flag], ipix )
                 n[i_flag] += 1
     ##  round finished
             new = False
 
+## to test the code, use:
 #            break ### !!! create only one round of segments
 #        break  ### !!!  only use first snapshot
 
@@ -674,18 +310,26 @@ def CreateChoppedRaySegments( ipixs, redshift_snapshots=redshift_snapshots[:], r
     
 
 
+
 ## reduce rays to LoS observables at redshift of interest
 def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], plot=False, models=[model] ):
-    field_types = fields[:]     ## requested fields
-    field_types.extend(['x', 'y', 'z','redshift', 'dl'])  ## cell center positions, redshift and pathlengths
-    field_types.append( 'B_LoS' )
+    ## collects segment files of ipix'th ray created by CreateChoppedRaySegments
+    ## computes and returns observables for all models, that are provided with a |B|~rho relation in relation_file
+    ## results are computed for sources located at redshift_skymaps   !!! rename redshift_skymaps
 
-    ## exclude constrained near ray, go to z=0 instead
+
+
+    field_types = fields[:]     ## requested fields
+    field_types.extend(['x', 'y', 'z','redshift', 'dl'])  ## add cell center positions, redshift and pathlengths within cells
+    field_types.append( 'B_LoS' ) ## add magnetic field parallel to LoS
+
+    ## exclude constrained near ray, go to z=0 instead  !!! remove completely
     try:
         redshift_snapshots.remove( redshift_max_near )
     except:
         pass
     
+    ## create empty array for results
     DMRM_ray = np.zeros( (1+len(models),len(redshift_skymaps)-1) )
 
     ## define B-rho-relation function for all models, given in relation_file
@@ -704,7 +348,7 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
     z0 = h5.File(files[-1])['grid/redshift'].value.min()
     if z0 > 0:
         print ipix, 'is not complete'
-        return
+        return;
     
     for f in files:
         ## read file data
@@ -712,36 +356,43 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
             g = h5.File(f)['grid']
         except:
             print f, "has no 'grid' "
-            continue
-        ## correct data (redshift dependence and B)
-        i_snap = np.where( np.round(redshift_snapshots[1:], redshift_accuracy) >= g['redshift'].value.max() )[0][0]
+            return;
+        ## correct data (smooth redshift dependence and B, which is saved wrongly by ENZO)
+        ##   find redshift of current snapshot.  snapshots are used for z < redshsift_snapshot, only the z=0 snapshot is used at higher redshift < redshift_trans. To account for that, compare to redshift_snapshots[1:], where redshift[1] is redshift_trans
+        i_snap = np.where( np.round(redshift_snapshots[1:], redshift_accuracy) >= g['redshift'].value.max() )[0][0] ## !!! check if redshift_near is removed
         redshift_snapshot = z_snaps[ i_snap ]        
+        ##   correction factor scales data from redshift_snapshot to redshift of cell
         a = RedshiftCorrectionFactor( g['redshift'].value, redshift_snapshot )
-
+        ## prepare empty data array
         data = np.zeros(g['dl'].shape, dtype=[ (field, 'float') for field in field_types ])
+        ## for all fields of interest
         for field in field_types:
+            ## except B_LoS, which is not yet computed, hence not in g
             if not field is 'B_LoS':
-                data[field] = g[field].value* ( a**-comoving_exponent[field]               ## data in proper cgs
+                ## smooth scaling, use correct expansion rate
+                data[field] = g[field].value* ( a**-comoving_exponent[field]               ## data in proper units
                                             if not 'B' in field else
                                             ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )*a  ### B is written wrongly, hence needs special care
                                         )
-        if remove:
+        if remove: ## remove file
             os.remove( f )
-        ## use data only before enter next snapshot
+
+        ## use data only before enter next snapshot, this data is provided in the next segment
         data = data[ data['redshift'] > redshift_snapshots[i_snap] ]
         if len(data['redshift']) == 0:
             continue
 
-        ## correctly scaled data results in wrong direction, use raw data instead 
-        direction = GetDirection( g['x'].value, g['y'].value, g['z'].value )
+        ## compute magnetic field parallel to LoS
+        direction = GetDirection( g['x'].value, g['y'].value, g['z'].value ) ## correctly scaled data results in wrong direction, use raw data instead 
         data['B_LoS'] = GetBLoS( data, direction=direction )
-        ## calculate DM RM
+
+        ## calculate DM RM for each cell   !!! add SM
         DMRM = DispersionMeasure( data['Density'], data['dl'], data['redshift'], data['B_LoS'] )
 
         ### compute RM for other models
         RMs = []
         for im, m in enumerate( models ):
-    ##      apply renormalization factor
+            ## since RM propto B_LoS, apply B(rho) renormalization factor
             RMs.append( DMRM[1] * renorm( im, data['Density'] / ( critical_density*OmegaBaryon*(1+data['redshift'])**3 ) ) ) ## density in terms of average (baryonic) density
             
         if plot:
@@ -749,17 +400,17 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
             plt.plot( 1+data['redshift'], DMRM[1] )
             print data['redshift'][0], data['redshift'][-1]
 
-        ## sum up to skymaps
+        ## sum up to corresponding redshift of interest in redshift_skymaps
         for i_map in range( len( redshift_skymaps ) - 1 ):
-        ## skip maps not covered by ray
+            ## skip maps not covered by ray
             if redshift_skymaps[i_map] > redshift_snapshot or redshift_skymaps[i_map+1] < redshift_snapshots[i_snap] :
                 continue
-        ##    find all  contributors in redshift range
+            ## find all  contributors in redshift range
             i_zs = np.where( (redshift_skymaps[i_map] <= data['redshift']) * (data['redshift'] < redshift_skymaps[i_map+1])  )[0]
-            #### modify such that all models are computed
             if len(i_zs) > 0:
-#                DMRM_ray[:,i_map] += np.sum( np.array(DMRM)[:,i_zs], axis=1 )
+                ## sum DM
                 DMRM_ray[0,i_map] += np.sum( DMRM[0][i_zs] )
+                ## sum RM for different magnetic field models
                 for im, m in enumerate( models ):
                     DMRM_ray[1+im,i_map] += np.sum( RMs[im][i_zs] )
         ## free memory
@@ -768,35 +419,40 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
     if plot:
         plt.show()
 
-    return DMRM_ray
+    return np.cumsum( DMRM_ray, axis=1 )
 
-#    CollectLoSDMRM( DMRM_ray, '/'.join( [ model, 'chopped',  str(ipix)] ) )
-#    for im, m in enumerate( models ):
-#        CollectLoSDMRM( DMRM_ray[np.array([0,1+im])], '/'.join( [ m, 'chopped',  str(ipix)] ) )
-    
 
 def CreateLoSsDMRM( remove=True, redshift_snapshots=redshift_snapshots[:], models=[model], N_workers=32, bunch=128 ):
-    ## find all segmented LoSs
+    ## collects all rays created by CreateChoppedRaySegments, computes their observables and writes them to DMRMrays_file
+    ## computes observables for all models, that are provided with a |B|~rho relation in relation_file
+    ## N_workers processes work parallel on bunch segments 
+
+    ## find all segment files and read their indices
     files = glob( root_rays+model+'/*segment000*.h5' )
     pixs = map( lambda f: int( f.split('pix')[-1].split('.h5')[0] ), files )
     pixs.sort()
     pixs = np.array(pixs)
 
+    ## CreateLoSDMRM does the actual job, use as pickleable function, feed it with the required keywords
     f = partial( CreateLoSDMRM, remove=remove, models=models )
 
+    ## loop through bunches of ray indices
     for i in range(0, len(pixs), bunch ):
-        pool = multiprocessing.Pool( N_workers )
         ipixs = np.arange( i, min([i+bunch,len(pixs)]) )
+        ## compute their LoS observables in parallel
+        pool = multiprocessing.Pool( N_workers )
         DMRM_rays = pool.map( f , pixs[ipixs] )
-#        DMRM_rays = map( f , pixs[ipixs] )
+#        DMRM_rays = map( f , pixs[ipixs] )  ## to check when parallel fails
         pool.close()
         pool.join()
+        ## and write the results to DMRMrays_file, for all rays and considered models
         for ipix, ray in zip( pixs[ipixs], DMRM_rays ):
             for im, m in enumerate( models ):
                 CollectLoSDMRM( ray[np.array([0,1+im])], '/'.join( [ m, 'chopped',  str(ipix)] ) )
 
 
-def CollectLoSDMRM( DMRM, key_new ):
+
+def CollectLoSDMRM( DMRM, key, values=['DM','RM'] ):
     ## write observables DMRM to DMRMrays_file at key_new
-    Write2h5( DMRMrays_file, DMRM, [ '/'.join( [ key_new, key ] ) for key in ['DM','RM'] ] )
+    Write2h5( DMRMrays_file, DMRM, [ '/'.join( [ key, v ] ) for v in values ] )
 

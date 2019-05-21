@@ -70,12 +70,14 @@ def DispersionMeasureIntegral( density, distance, redshift, B_LoS=None, axis=Non
     return np.sum( DM, axis=axis ), np.sum( RM, axis=axis )
 
 def GetDirection( x, y, z ):
+    ## compute direction of LoS through cells at position x, y, z
+    ## direction = end - start
     d = np.array( [ x[-1] - x[0], y[-1] - y[0], z[-1] - z[0] ] )
     return d / np.linalg.norm(d)
 
 
 def GetBLoS( data, direction=None ):
-    ## compute the LoS magnetic field for data of single ray
+    ## compute the LoS magnetic field for data of single ray, B_LoS = direction.B
     if direction is None:
         direction = GetDirection( data['x'], data['y'], data['z'] )
     return np.dot( direction, np.array( [ data['Bx'], data['By'], data['Bz'] ] ) )
@@ -143,7 +145,7 @@ def Write2h5( filename, datas, keys ):
             f.create_dataset( key, data=data  )
             
 def KeyProbability( z, model, typ, nside, value, which ):
-    ## get key in probability_file
+    ## get key in probability_file_IGM
     return '/'.join( [ model, typ, str(nside), value, '%.4f' % z, which ] )
 
 def KeySkymap( z, model, typ, nside, value ):
@@ -165,7 +167,7 @@ return root_rays + model + '/ray%i_%i.h5' % (ipix,npix)
 
 def RedshiftCorrectionFactor( redshifts, redshift_snap ):
     ## factor to correct redshift evolution
-    ## data is given for redshift of snaphost, replace by redshift along LoS
+    ## data is given for redshift of snaphost, rescale to redshift along LoS
     return ( 1 + redshifts ) / (1+redshift_snap)
 
 def GetRedshiftCorrectionFactors( data, far=False, steps=None ):
