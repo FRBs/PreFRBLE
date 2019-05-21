@@ -1,0 +1,28 @@
+DM ~ a
+RM ~ a^2
+SM ~ a^2
+
+
+measure B_0:
+- B~rho from simulations (Franco)
+
+galaxies:
+- what types of galaxies (mass, SFR) are likely at different redshifts (ask Jochen)
+
+intervening galaxies:
+- use n_gal ~ rho for constrained LoS, d n / d M / d z for far LoS
+- n_gal ~ rho_gas or rho_DM (ask Jochen or mail Klaus)
+- d n_gal / d M / d z, newer observations? (ask Jochen)
+
+scattering:
+- add scattering measure SM
+  - compute with L_0 = 1, correct in postprocessing
+  - Convenience: DispersionMeasure
+  - Rays: CollectLoSDMRM
+    	  CreateLoSsDMRM
+	  CreateLoSDMRM
+	  MakeNewSkymaps_MultipleModels
+
+
+
+

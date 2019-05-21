@@ -157,18 +157,18 @@ def GetNearRayData( ipix, model=model, redshift_initial=redshift_initial, correc
         data = np.zeros(g['dl'].shape, dtype=[ (field, 'float') for field in field_types ])
 
         if correct:
-            ## correct values for smooth evolution of proper values with redshift
+            ## correct measures for smooth evolution of proper measures with redshift
             ##   correct scaling factor in final snapshot
-            a = RedshiftCorrectionFactors( z, z_snaps[0] )
+            a = ScaleFactor( z, z_snaps[0] )
 
             ## for all fields of interest
             for field in field_types:
                 ## except for B_LoS, which is not yet computed, hence not in g
                 if not field is 'B_LoS':
                     ## apply the correct scaling factor
-                    data[field] = g[field]* ( a**-comoving_exponent[field]               ## data in proper cgs
+                    data[field] = g[field]* ( a**comoving_exponent[field]               ## data in proper cgs
                                               if not 'B' in field else
-                                              ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )*a  ### B is written wrongly, hence needs special care
+                                              ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )/a  ### B is written wrongly, hence needs special care
                                           )
 
         else:
@@ -362,7 +362,7 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
         i_snap = np.where( np.round(redshift_snapshots[1:], redshift_accuracy) >= g['redshift'].value.max() )[0][0] ## !!! check if redshift_near is removed
         redshift_snapshot = z_snaps[ i_snap ]        
         ##   correction factor scales data from redshift_snapshot to redshift of cell
-        a = RedshiftCorrectionFactor( g['redshift'].value, redshift_snapshot )
+        a = ScaleFactor( g['redshift'].value, redshift_snapshot )
         ## prepare empty data array
         data = np.zeros(g['dl'].shape, dtype=[ (field, 'float') for field in field_types ])
         ## for all fields of interest
@@ -370,9 +370,9 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
             ## except B_LoS, which is not yet computed, hence not in g
             if not field is 'B_LoS':
                 ## smooth scaling, use correct expansion rate
-                data[field] = g[field].value* ( a**-comoving_exponent[field]               ## data in proper units
+                data[field] = g[field].value* ( a**comoving_exponent[field]               ## data in proper units
                                             if not 'B' in field else
-                                            ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )*a  ### B is written wrongly, hence needs special care
+                                            ( ( 1+g['redshift'][:] ) / (1+redshift_initial) )/a  ### B is written wrongly, hence needs special care
                                         )
         if remove: ## remove file
             os.remove( f )
@@ -452,7 +452,7 @@ def CreateLoSsDMRM( remove=True, redshift_snapshots=redshift_snapshots[:], model
 
 
 
-def CollectLoSDMRM( DMRM, key, values=['DM','RM'] ):
+def CollectLoSDMRM( DMRM, key, measures=['DM','RM'] ):
     ## write observables DMRM to DMRMrays_file at key_new
-    Write2h5( DMRMrays_file, DMRM, [ '/'.join( [ key, v ] ) for v in values ] )
+    Write2h5( DMRMrays_file, DMRM, [ '/'.join( [ key, v ] ) for v in measures ] )
 

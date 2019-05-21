@@ -1,6 +1,6 @@
-xoimport sys, h5py as h5, numpy as np, matplotlib.pyplot as plt
+import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt
 
-units = {
+units = {OA
     'DM'       :r"pc cm$^{-3}$",
     'RM'       :r"rad m$^{-2}$",
     'z'        :r"z",
@@ -9,34 +9,34 @@ units = {
 
 root = '/PreFRBLE'
 
-probability_file = root+'DMRMprobability.h5'
+likelihood_file = root+'DMRMlikelihood.h5'
 sky_file = root+'DMRMmaps_galaxy.h5'
 
-probability_file_progenitor = root+'DMRMprobability_progenitor.h5'
-probability_file_galaxy = root+'DMRMprobability_galaxy.h5'
-probability_file_IGM = root+'DMRMprobability_IGM.h5'
+likelihood_file_progenitor = root+'DMRMlikelihood_progenitor.h5'
+likelihood_file_galaxy = root+'DMRMlikelihood_galaxy.h5'
+likelihood_file_IGM = root+'DMRMlikelihood_IGM.h5'
 
-probability_file_Full = root+'DMRMprobability_Full.h5'
+likelihood_file_Full = root+'DMRMlikelihood_Full.h5'
 
 
-def KeyProgenitor( model, typ='DM', value='P' ):
-    return '/'.join( [ model, typ, value ] )
+def KeyProgenitor( model, measure='DM', axis='P' ):
+    return '/'.join( [ model, measure, axis ] )
 
-def KeyMilkyWay( model, typ='DM'  ):
-    return '/'.join( [ 'MilkyWay', model, typ ] )
+def KeyMilkyWay( model, measure='DM'  ):
+    return '/'.join( [ 'MilkyWay', model, measure ] )
 
-def KeyHost( model, weight, typ='DM' ):
-    return '/'.join( [ 'Host', model, weight, typ ] )
+def KeyHost( model, weight, measure='DM' ):
+    return '/'.join( [ 'Host', model, weight, measure ] )
 
-def KeyIGM( z, model, typ, nside, value, which ):
-    return '/'.join( [ model, typ, str(nside), value, '%.4f' % z, which] )
+def KeyIGM( z, model, measure, nside, measure, axis ):
+    return '/'.join( [ model, measure, str(nside), measure, '%.4f' % z, axis] )
 
-def KeyFull( typ='DM', z=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Progenitor=['Piro18/uniform_JF12'] ):
+def KeyFull( measure='DM', z=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Progenitor=['Piro18/uniform_JF12'] ):
     models = np.append( model_MW, model_IGM )
     models = np.append( models, model_Host )
     models = np.append( models, weight_Host )
     models = np.append( models, model_Progenitor )
-    models = np.append( models, [z, typ] )
+    models = np.append( models, [z, measure] )
     return '/'.join( models )
 
 
@@ -52,50 +52,50 @@ def Write2h5( filename, datas, keys ):
                 pass                                                            
             f.create_dataset( key, data=data  )
 
-def GetProbability_IGM( z=0., model='primordial', distance='far', nside=64, typ='DM', absolute=True ):
+def GetLikelihood_IGM( z=0., model='primordial', distance='far', nside=64, measure='DM', absolute=True ):
     if z < 0.1:
         distance='near'
-    if typ == 'DM':
+    if measure == 'DM':
         model='primordial'
-    with h5.File( probability_file_IGM ) as f:
-        P = f[ KeyIGM( z, model, distance, nside, '|%s|' % typ if absolute else typ, 'P' ) ].value
-        x = f[ KeyIGM( z, model, distance, nside, '|%s|' % typ if absolute else typ, 'x' ) ].value
+    with h5.File( likelihood_file_IGM ) as f:
+        P = f[ KeyIGM( z, model, distance, nside, '|%s|' % measure if absolute else measure, 'P' ) ].value
+        x = f[ KeyIGM( z, model, distance, nside, '|%s|' % measure if absolute else measure, 'x' ) ].value
     return P, x
 
-def GetProbability_Host( z=0., model='JF12', weight='uniform', typ='DM' ):
-    with h5.File( probability_file_galaxy ) as f:
-        P = f[ KeyHost( model, weight, typ+'/P' ) ].value * (1+z)**( 1 + (typ=='RM') )
-        x = f[ KeyHost( model, weight, typ+'/x' ) ].value / (1+z)**( 1 + (typ=='RM') )
+def GetLikelihood_Host( z=0., model='JF12', weight='uniform', measure='DM' ):
+    with h5.File( likelihood_file_galaxy ) as f:
+        P = f[ KeyHost( model, weight, measure+'/P' ) ].value * (1+z)**( 1 + (measure=='RM') )
+        x = f[ KeyHost( model, weight, measure+'/x' ) ].value / (1+z)**( 1 + (measure=='RM') )
     return P, x
 
-def GetProbability_Progenitor( z=0., model='Piro18/uniform', typ='DM' ):
-    with h5.File( probability_file_progenitor ) as f:
-        P = f[ KeyProgenitor( model, typ, 'P' ) ].value * (1+z)**( 1 + (typ=='RM') )
-        x = f[ KeyProgenitor( model, typ, 'x' ) ].value / (1+z)**( 1 + (typ=='RM') )
+def GetLikelihood_Progenitor( z=0., model='Piro18/uniform', measure='DM' ):
+    with h5.File( likelihood_file_progenitor ) as f:
+        P = f[ KeyProgenitor( model, measure, 'P' ) ].value * (1+z)**( 1 + (measure=='RM') )
+        x = f[ KeyProgenitor( model, measure, 'x' ) ].value / (1+z)**( 1 + (measure=='RM') )
     return P, x
 
-def GetProbability_MilkyWay( model='JF12', typ='DM' ):
-    with h5.File( probability_file_galaxy ) as f:
-        P = f[ KeyMilkyWay( model, typ+'/P' ) ].value
-        x = f[ KeyMilkyWay( model, typ+'/x' ) ].value
+def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
+    with h5.File( likelihood_file_galaxy ) as f:
+        P = f[ KeyMilkyWay( model, measure+'/P' ) ].value
+        x = f[ KeyMilkyWay( model, measure+'/x' ) ].value
     return P, x
 
 
-def GetProbability_Full( z=0.1, typ='DM', **models ):
-    with h5.File( probability_file_Full ) as f:
-        P = f[ KeyFull( typ+'/P', z=z, **models ) ].value
-        x = f[ KeyFull( typ+'/x', z=z, **models ) ].value
+def GetLikelihood_Full( z=0.1, measure='DM', **models ):
+    with h5.File( likelihood_file_Full ) as f:
+        P = f[ KeyFull( measure+'/P', z=z, **models ) ].value
+        x = f[ KeyFull( measure+'/x', z=z, **models ) ].value
     return P, x
 
-get_probability = {
-    'IGM'  :       GetProbability_IGM,
-    'Host' :       GetProbability_Host,
-    'Progenitor' : GetProbability_Progenitor,
-    'MilkyWay'   : GetProbability_MilkyWay  
+get_likelihood = {
+    'IGM'  :       GetLikelihood_IGM,
+    'Host' :       GetLikelihood_Host,
+    'Progenitor' : GetLikelihood_Progenitor,
+    'MilkyWay'   : GetLikelihood_MilkyWay  
 }
 
-def GetProbability( contributor, model, density=True, **kwargs ):
-    P, x = get_probability[contributor]( model=model, **kwargs )
+def GetLikelihood( contributor, model, density=True, **kwargs ):
+    P, x = get_likelihood[contributor]( model=model, **kwargs )
     if not density:
         P *= np.diff(x)
     return P, x
@@ -118,7 +118,7 @@ def histogram( data, bins=10, range=None, density=None, log=False ):
         h = np.histogram( data, bins=bins, range=range, density=density )[0]
     return h, x
 
-def PlotProbability( x, P, density=False, cumulative=False, log=True, ax=None, typ=None, **kwargs ):
+def PlotLikelihood( x, P, density=False, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
     if cumulative:
         density = False
     if ax is None:
@@ -131,17 +131,17 @@ def PlotProbability( x, P, density=False, cumulative=False, log=True, ax=None, t
         ax.loglog()
     ax.plot( xx, PP, **kwargs)
 
-    if typ is not None:
-        typ_ = typ if typ=='DM' else '|%s|' % typ
-        ax.set_xlabel( 'observed %s / %s' % ( typ_, units[typ] ), fontdict={'size':16 } )
-        ax.set_ylabel( ( r"P(%s)" % typ_ ) + ( ( r"$\cdot$%s" % typ_ ) if density else ( r"$\Delta$%s" % typ_ ) ), fontdict={'size':18 } )
-#        ax.set_xlabel( typ + ' [%s]' % units[typ], fontdict={'size':20, 'weight':'bold' } )
-#        ax.set_ylabel(  'Probability', fontdict={'size':24, 'weight':'bold' } )
+    if measure is not None:
+        measure_ = measure if measure=='DM' else '|%s|' % measure
+        ax.set_xlabel( 'observed %s / %s' % ( measure_, units[measure] ), fontdict={'size':16 } )
+        ax.set_ylabel( ( r"P(%s)" % measure_ ) + ( ( r"$\cdot$%s" % measure_ ) if density else ( r"$\Delta$%s" % measure_ ) ), fontdict={'size':18 } )
+#        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
+#        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
 
 
 
-def AddProbabilities( fs, xs, log=True, shrink=False, weights=None ):
+def AddLikelihoods( fs, xs, log=True, shrink=False, weights=None ):
     if len(fs) == 1 and not shrink:
         return fs[0], xs[0] 
     ## new function support
@@ -177,7 +177,7 @@ def AddProbabilities( fs, xs, log=True, shrink=False, weights=None ):
                 x_ = x_f[np.append(ix,ix[-1]+1)]
     ##     restrict range to within target bin
                 x_[0], x_[-1] = b0, b1
-    ##     add average to target probability
+    ##     add average to target likelihood
 #                P[ib] += np.sum( f[ix]*np.diff(x_) ) / (b1-b0)
                 P[ib] += w * np.sum( f[ix]*np.diff(x_) ) / (b1-b0)
     ## renormalize to 1

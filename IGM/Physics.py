@@ -65,3 +65,54 @@ z_from_t = co.z_from_t
 t_from_z = co.t_from_z
 
 
+## Geometry
+
+def GetDirection( x, y, z ):
+    ## compute direction of LoS through cells at position x, y, z
+    ## direction = end - start
+    d = np.array( [ x[-1] - x[0], y[-1] - y[0], z[-1] - z[0] ] )
+    return d / np.linalg.norm(d)
+
+
+def GetBLoS( data, direction=None ):
+    ## compute the LoS magnetic field for data of single ray, B_LoS = direction.B
+    if direction is None:
+        direction = GetDirection( data['x'], data['y'], data['z'] )
+    return np.dot( direction, np.array( [ data['Bx'], data['By'], data['Bz'] ] ) )
+
+
+def ScaleFactor( redshift, redshift0 ):
+    ## factor to correct redshift evolution
+    ## data is given for redshift of snaphost, rescale to redshift along LoS
+    return ( 1 + redshift0 ) / (1+redshift)
+
+
+
+## Observables
+
+def DispersionMeasure( density, distance, redshift, B_LoS=None ):
+    ## compute dispersion measure DM
+    ### density in g/cm^3
+    ### distance in kpc
+    ###  B_LoS in G
+    ## electron density = gas density / ( proton mass * electron weight )
+    DM = density / (proton_mass * 1.16) * distance / (1 + redshift ) / kpc2cm * 1e3 # cgs to pc / cm**3
+    if B_LoS is None:
+        return DM
+    ## if B_LoS is given, also compute the rotation measure
+    RM = 0.81 * B_LoS * DM / (1+redshift) * 1e6 # rad / m^2
+    return DM, RM
+
+def DispersionMeasureIntegral( density, distance, redshift, B_LoS=None, axis=None ):
+    ## compute disperion measure integral
+    if B_LoS is None:
+        DM = DispersionMeasure( density, distance, redshift )
+        return np.sum( DM, axis=axis )
+    ## if B_LoS is given, also compute the rotation measure integral
+    DM, RM = DispersionMeasure( density, distance, redshift, B_LoS )
+    return np.sum( DM, axis=axis ), np.sum( RM, axis=axis )
+
+
+
+
+

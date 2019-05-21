@@ -1,7 +1,7 @@
 '''
 Procedures to 
- - compute the probablity function for "near" and "chopped" LoS
- - read probability functions from file (!!! remove, double ???)
+ - compute the likelihood function for "near" and "chopped" LoS
+ - read likelihood functions from file (!!! remove, double ???)
 
 '''
 
@@ -12,31 +12,31 @@ from Skymaps import GetSkymap
 import numpy as np, h5py as h5
 
 
-def MakeNearProbabilityFunction( model=model, value='DM', nside=nside, bins=30, absolute=False, range=None ):
-    ## reads near skymaps, computes their probability functions and writes to probability_file_IGM
+def MakeNearLikelihoodFunction( model=model, measure='DM', nside=nside, bins=30, absolute=False, range=None ):
+    ## reads near skymaps, computes the likelihood functions and writes to likelihood_file_IGM
 
     ## for each redshift
     for z in redshift_skymaps_near[1:]:
     ##   read skymap
-        sky = GetSkymap( z, typ='near', model=model, value=value, nside=nside )
+        sky = GetSkymap( z, typ='near', model=model, measure=measure, nside=nside )
         if absolute:
             sky = np.abs( sky )
-        if value=='DM' or absolute:
-            ## for definitely positive values, use logarithmic bins
+        if measure=='DM' or absolute:
+            ## for definitely positive measures, use logarithmic bins
             log = True
         else:
             log = False
 
-    ##   compute probability function, which is the density histogram of the full sky, normalized to 1 = int P dx
+    ##   compute likelihood function, which is the density histogram of the full sky, normalized to 1 = int P dx
         P, x = histogram( sky, density=True, bins=bins, range=range, log=log )
 
     ##   write to file
-        keys = [ KeyProbability( z, model, 'near', nside, '|%s|' % value if absolute else value, which ) for which in ['P', 'x'] ]
-        Write2h5( probability_file_IGM, [P,x], keys )
+        keys = [ KeyLikelihood_IGM( z, model, 'near', nside, '|%s|' % measure if absolute else measure, which ) for which in ['P', 'x'] ]
+        Write2h5( likelihood_file_IGM, [P,x], keys )
 
     
 
-def MakeDMRMRayProbabilityFunction( nbins, x_range, bunch=128, typ='DM', model=model, absolute=True ):
+def MakeDMRMRayLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=model, absolute=True ):
     ## compute likelihood function of LoS observables of "chopped" rays at high redshift in DMRMrays_file
 
     ## empty array for final results
@@ -55,7 +55,7 @@ def MakeDMRMRayProbabilityFunction( nbins, x_range, bunch=128, typ='DM', model=m
 ##                i_ray += 1   ## moved to later in order to not skip i=0
 ##                if i_ray > i_ray_max:
 ##                    break
-                key = '/'.join( [ model, 'chopped',  str(i_ray), typ] )
+                key = '/'.join( [ model, 'chopped',  str(i_ray), measure] )
                 rays.append( f[key].value )
                 n_rays += 1 
                 i_ray += 1     ##
@@ -63,11 +63,10 @@ def MakeDMRMRayProbabilityFunction( nbins, x_range, bunch=128, typ='DM', model=m
                     break
             if len(rays) == 0:
                 continue
-####            rays = np.cumsum( rays, axis=1 )
             if absolute:
                 rays = np.abs(rays)
             ## for each redshift, compute the likelihood function of the bunch and add to full result, weighted by number of rays in current bunch
-            histograms += float(len(rays))*np.array( [ histogram( rays[:,i], bins=nbins, range=x_range, density=True, log=True if typ=='DM' or absolute else False )[0] for i in range(len(redshift_skymaps[1:]) ) ] )
+            histograms += float(len(rays))*np.array( [ histogram( rays[:,i], bins=nbins, range=x_range, density=True, log=True if measure=='DM' or absolute else False )[0] for i in range(len(redshift_skymaps[1:]) ) ] )
 
             n_iter += 1
             print '%.0f percent' % ( 100*float(i_ray)/i_ray_max ), 
@@ -80,13 +79,13 @@ def MakeDMRMRayProbabilityFunction( nbins, x_range, bunch=128, typ='DM', model=m
     
     ## write to file
     for i_z, z in enumerate( redshift_skymaps[1:] ):
-        keys = [ KeyProbability( z, model, 'far', nside, '|%s|' % typ if absolute else typ, which ) for which in [ 'P', 'x' ] ]
-        Write2h5( probability_file_IGM, [histograms[i_z], x], keys )
+        keys = [ KeyLikelihood_IGM( z, model, 'far', nside, '|%s|' % measure if absolute else measure, which ) for which in [ 'P', 'x' ] ]
+        Write2h5( likelihood_file_IGM, [histograms[i_z], x], keys )
     return histograms
 
 
-def GetProbability( z, model=model, typ='near', nside=nside, value='DM', absolute=False ):
-    ## read likelihood function from probability_file_IGM
-    keys = [ KeyProbability( z, model, typ, nside, '|%s|' % value if absolute else value, which ) for which in [ 'P', 'x' ] ]
-    return tuple([ h5.File( probability_file_IGM )[key].value for key in keys ])
+def GetLikelihood( z, model=model, typ='near', nside=nside, measure='DM', absolute=False ):
+    ## read likelihood function from likelihood_file_IGM
+    keys = [ KeyLikelihood( z, model, typ, nside, '|%s|' % measure if absolute else measure, which ) for which in [ 'P', 'x' ] ]
+    return tuple([ h5.File( likelihood_file_IGM )[key].value for key in keys ])
 

@@ -57,7 +57,7 @@ def MakeNearSkymaps_MultipleModels( models=[model] ):
     
 
 
-def GetSkymap( z, model=model, typ='near', nside=nside, value='DM' ):
+def GetSkymap( z, model=model, typ='near', nside=nside, measure='DM' ):
     ## read data of indicated skymap from skymap_file
-    key = KeySkymap( z, model, typ, nside, value )
+    key = KeySkymap( z, model, typ, nside, measure )
     return h5.File( skymap_file )[key].value

@@ -18,8 +18,8 @@ import numpy as np
 
 root_data = root+'MHD-models/clues/'
 
-def MakeUniformProbability( model, N=1024, L=250e3/h, range=(1e-4,1e2), bins=100, log=True, posneg=False ):
-    ## obtain probability of RM for a given model
+def MakeUniformLikelihood( model, N=1024, L=250e3/h, range=(1e-4,1e2), bins=100, log=True, posneg=False ):
+    ## obtain likelihood of RM for a given model
     dx = L/N  ## resolution of uniform grid in kpc
     ## electron density in cm^-3
     rho = np.fromfile( root_data + 'mass-density_clues.dat', dtype='float32' ).reshape( N, N, N ) * critical_density*OmegaBaryon  / (proton_mass*1.16)  # transform gas density to electron number density
@@ -43,18 +43,18 @@ def MakeUniformProbability( model, N=1024, L=250e3/h, range=(1e-4,1e2), bins=100
         P, x = [Pp, Pn], [xp, xn]
     else:
         P, x = histogram( RM, log=log, range=range, bins=bins, density=True )
-        print Histogram2Expectation( P, x, log=log )
+        print Likelihood2Expectation( P, x, log=log )
     return P, x
     
 
 
-def PlotUniformProbability( models, N=1024, L=250e3/h, range=(1e-4,1e2), bins=100, log=True, density=True, posneg=False ):
+def PlotUniformLikelihood( models, N=1024, L=250e3/h, range=(1e-4,1e2), bins=100, log=True, density=True, posneg=False ):
     ## plot results for all models in a single panel
     fig, ax = plt.subplots()
     if log:
         plt.loglog()
     for model in models:
-        P, x = MakeUniformProbability( model, N=N, L=L, range=range, bins=bins, posneg=posneg )
+        P, x = MakeUniformLikelihood( model, N=N, L=L, range=range, bins=bins, posneg=posneg )
         if posneg:
             for x_, P_, l in zip(x,P, ['-','--']):
                 plt.plot( x_[:-1]+np.diff(x_)/2, P_ * np.diff(x_)**(not density) * x_**(density), label=model if l=='-' else None, linestyle=l )
@@ -70,7 +70,7 @@ def PlotUniformProbability( models, N=1024, L=250e3/h, range=(1e-4,1e2), bins=10
         plt.ylabel( 'P(|RM|)$\cdot$|RM|', fontdict={'size':16} )
     else:
         plt.ylabel( r"P(|RM|)$\Delta$|RM|", fontdict={'size':16} )
-    plt.savefig( root_FRB + 'UniformProbability%s%s_RM.png' % ( 'posneg' if posneg else '', 'density' if density else '' ) )
+    plt.savefig( root_FRB + 'UniformLikelihood%s%s_RM.png' % ( 'posneg' if posneg else '', 'density' if density else '' ) )
     plt.close()
 
-PlotUniformProbability( ['primordial', 'primordial2R', 'primordial3R', 'astrophysical', 'astrophysicalR', 'astrophysical1R' ], range=(2e-18,0.9e2), density=True) #, posneg=True )# , density=False )
+PlotUniformLikelihood( ['primordial', 'primordial2R', 'primordial3R', 'astrophysical', 'astrophysicalR', 'astrophysical1R' ], range=(2e-18,0.9e2), density=True) #, posneg=True )# , density=False )
