@@ -12,7 +12,7 @@ from Convenience import *
 
 ## specify parameters of the analysis
 model_tag = 'primordial'
-nside = 2**6                         ## healpix resolution parameter
+nside = 2**2 #2**6                         ## healpix resolution parameter
 redshift_max = 6.0                   ## maximum redshift of LoS
 observer_position = np.ones(3) * 0.5 ## observer in center of simulation volume 
 

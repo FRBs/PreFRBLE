@@ -38,36 +38,22 @@ keys = {
 }
 
 
-def CollectRays( typ, remove=True ):
+def CollectRays( remove=True ):
     ## collect all files with single rays in constrained volume to rays_file
-    if typ=='chopped':
-        file_name = root_rays + model + '/ray_z'
-        for i_snap, z in enumerate( redshift_snapshots[1:-1] ): 
-            for i in range( N_choppers_total[i_snap] ):
-                try:
-                    CollectRay( file_name + '%1.2f_%i.h5' % ( z, i ),
-                                '/'.join([keys['chopped'], '%1.2f' % z,  str(i) ] ),
-                                remove=remove
-                    )
-                except:
-                    print "%s doesn't exist" % ( file_name + '%1.2f_%i.h5' % ( z, i ) )
-                                         
-    else:
-        file_name = root_rays + model + '/ray'
-        for ipix in range( npix ):
-            ## consider all possible directions
-            CollectRay( ipix, remove=remove )
+    for ipix in range( npix ):
+        ## consider all possible directions
+        CollectRay( ipix, remove=remove )
 
 
 
 def CollectRay( ipix, remove=True ):
     ## write h5 of single ray to rays_file
-    filename = root_rays + model + '/ray%i_%i.h5' % (ipix,npix)
+    filename = FileNearRay( ipix, model=model, npix=npix )
     with h5.File( filename, 'r' ) as fil:  ##     open ray file
         f = fil['grid']
         for measure in f.keys():          ##     for each data field
-            new_key = KeyNearRay( model_tag, nside, ipix, measure )
-            Write2h5( rays_file, [f[measure].value], [new_key] )
+            key = KeyNearRay( model_tag, nside, ipix, measure )
+            Write2h5( rays_file, [f[measure].value], [key] )
     if remove:
         os.remove( filename )             ##       remove ray file
 
@@ -121,14 +107,16 @@ def MakeNearRays( observer_position=observer_position ):  ## works
     ## make LightRay object of first data set with redshift = 0
     f = partial( MakeNearRay, observer_position=observer_position, collect=False )  ## define as pickleable function to allow multiprocessing
 
+
+    ### !!!! this map ends too early, after producing the first round of rays... why ????
     pool = multiprocessing.Pool( N_workers_MakeNearRays )
-    pool.map( f , trange( npix ) )# , 1 )
-#    map( f , trange( npix ) )# , 1 )
+    pool.map( f , range( npix ) )# , 1 )
+#    map( f , range( npix ) )
     pool.close()
     pool.join()
 
     ## collect ray files to a single h5
-    CollectRays( 'near' )
+#    CollectRays( remove=False )
 
 
 

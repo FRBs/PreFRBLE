@@ -28,7 +28,7 @@ RM_range = [ 1e-6, 1e3 ] ## range for the likelihood function of |RM|
 ##   technical parameters
 span_tot = 32   ## number of LoS to be computed
 off = 0          ## index number of the first LoS
-N_workers = 8   ## number of processes to work in parallel
+N_workers = 4   ## number of processes to work in parallel
 
 span=span_tot/N_workers ##  size of bunch to be computed by single process
 r = [ range(i+off, i+span+off) for i in range(0,span_tot,span) ]  ## bunches of LoS indices to be produced by the individual process

@@ -7,12 +7,12 @@ Produce Probability functions of LoS observables within the constrained volume
 import matplotlib
 matplotlib.use('Agg')  ## to plot file without display
 
-from Rays import MakeNearRays
+from Rays import MakeNearRays, CollectRays
 from Skymaps import MakeNearSkymaps
 from LikelihoodFunctions import MakeNearLikelihoodFunction
 from Plots import PlotSkymaps
 
-import time
+import time, sys
 t0 = time.time()
 
 
@@ -25,6 +25,9 @@ RM_range_log = (1e-6,1e2)   ## range of likelihood function of log( |RM| )
 
 ## from IGM simulation, read raw data of cells along the LoS and collect them to rays_file
 MakeNearRays()
+
+sys.exit()
+CollectRays()
 
 ## compute observables from raw data and save it to full-sky maps in skymap_file
 MakeNearSkymaps( models=models )
