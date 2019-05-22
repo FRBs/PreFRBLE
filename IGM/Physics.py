@@ -43,20 +43,23 @@ Mpch2cm = Mpc2cm/h
 kpch2cm = kpc2cm/h
 
 ## physical constants
-OmegaBaryon       = 0.04
-OmegaCDM          = 0.23
-OmegaMatter       = 0.27
-OmegaLambda       = 0.73
-OmegaCurvature    = 0.0
+omega_baryon       = 0.04
+omega_CDM          = 0.23
+omega_matter       = 0.27
+omega_lambda       = 0.73
+omega_curvature    = 0.0
 
-critical_density = 9.47e-30 # g/cm**3
+critical_density = 9.47e-30 # g / cm**3
 electron_mass = 9.11e-28  # g
 proton_electron_mass_ratio = 1836.
 proton_mass = 1.67e-24 # g
+hubble_constant = 67.11 # H_0 in km / s / Mpc
+speed_of_light = 2.998e8 # m / s
 
+outer_scale_0_IGM = 1 # pc           ## global outer scale assumed to compute SM, choose other values by SM*L0**(-2/3)
 
 ## cosmic functions
-co = Cosmology( hubble_constant=h, omega_matter=OmegaMatter, omega_lambda=OmegaLambda, omega_curvature=OmegaCurvature )
+co = Cosmology( hubble_constant=h, omega_matter=omega_matter, omega_lambda=omega_lambda, omega_curvature=omega_curvature )
 
 comoving_radial_distance = co.comoving_radial_distance  ## distance z0 to z1
 
@@ -90,29 +93,29 @@ def ScaleFactor( redshift, redshift0 ):
 
 ## Observables
 
-def DispersionMeasure( density, distance, redshift, B_LoS=None ):
+def DispersionMeasure( density=None, distance=None, redshift=None ):
     ## compute dispersion measure DM
     ### density in g/cm^3
     ### distance in kpc
-    ###  B_LoS in G
     ## electron density = gas density / ( proton mass * electron weight )
-    DM = density / (proton_mass * 1.16) * distance / (1 + redshift ) / kpc2cm * 1e3 # cgs to pc / cm**3
-    if B_LoS is None:
-        return DM
-    ## if B_LoS is given, also compute the rotation measure
-    RM = 0.81 * B_LoS * DM / (1+redshift) * 1e6 # rad / m^2
-    return DM, RM
-
-def DispersionMeasureIntegral( density, distance, redshift, B_LoS=None, axis=None ):
-    ## compute disperion measure integral
-    if B_LoS is None:
-        DM = DispersionMeasure( density, distance, redshift )
-        return np.sum( DM, axis=axis )
-    ## if B_LoS is given, also compute the rotation measure integral
-    DM, RM = DispersionMeasure( density, distance, redshift, B_LoS )
-    return np.sum( DM, axis=axis ), np.sum( RM, axis=axis )
+    return density / (proton_mass * 1.16) * distance / (1 + redshift ) / kpc2cm * 1e3 # pc / cm**3
 
 
+def RotationMeasure( DM=None, density=None, distance=None, redshift=None, B_LoS=None ):
+    ## compute rotation measure RM
+    ### DM in pc / cm^3
+    ###   or
+    ### density in g/cm^3
+    ### distance in kpc
+    ###
+    ###  B_LoS in G
+    if not DM:
+        DM = DispersionMeasure( density=density, distance=distance, redshift=redshift )
+    return 0.81 * B_LoS * DM / (1+redshift) * 1e6 # rad / m^2
 
-
-
+def ScatteringMeasure( density=None, distance=None, redshift=None, outer_scale=None, omega_baryon=omega_baryon ):
+    ## compute scattering measure SM (cf. Eq. 9 in Zhu et al. 2018)
+    ### plasma density in g/cm^3
+    ### distance in kpc
+    ### outer_scale in pc
+    return 1.42e-13 * (omega_baryon/0.049)**2 * outer_scale**(-2./3) * ( density/CriticalDensity(redshift) )**2 * (1+z)**4 * distance # kpc m**(-20/3)

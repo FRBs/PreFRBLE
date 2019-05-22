@@ -17,12 +17,13 @@ intervening galaxies:
 scattering:
 - add scattering measure SM
   - compute with L_0 = 1, correct in postprocessing
-  - Convenience: DispersionMeasure
-  - Rays: CollectLoSDMRM
-    	  CreateLoSsDMRM
-	  CreateLoSDMRM
-	  MakeNewSkymaps_MultipleModels
-
+  - Convenience: DispersionMeasure		DONE
+  - Rays: CollectLoSDMRM			DONE
+    	  CreateLoSsDMRM			DONE
+	  CreateLoSDMRM				DONE
+  - Skymaps: MakeNearSkymaps_MultipleModels	DONE
+  - execute: MakeNearProbability
+    	     MakeFarProbability
 
 
 

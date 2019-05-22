@@ -22,7 +22,7 @@ def MakeUniformLikelihood( model, N=1024, L=250e3/h, range=(1e-4,1e2), bins=100,
     ## obtain likelihood of RM for a given model
     dx = L/N  ## resolution of uniform grid in kpc
     ## electron density in cm^-3
-    rho = np.fromfile( root_data + 'mass-density_clues.dat', dtype='float32' ).reshape( N, N, N ) * critical_density*OmegaBaryon  / (proton_mass*1.16)  # transform gas density to electron number density
+    rho = np.fromfile( root_data + 'mass-density_clues.dat', dtype='float32' ).reshape( N, N, N ) * critical_density*omega_baryon  / (proton_mass*1.16)  # transform gas density to electron number density
     ## magnetic field in muG
     B = np.fromfile( root_data + 'magnetic-field_clues_%s.dat' % model, dtype='float32' ).reshape( 3, N, N, N ) * 1e10  # Tesla -> muG
     if model == 'primordial':

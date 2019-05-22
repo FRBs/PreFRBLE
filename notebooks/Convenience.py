@@ -3,20 +3,21 @@ import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt
 units = {OA
     'DM'       :r"pc cm$^{-3}$",
     'RM'       :r"rad m$^{-2}$",
+    'SM'       :r"kpc m$^{-20/3}$",
     'z'        :r"z",
     'redshift' :r"1+z",
 }
 
 root = '/PreFRBLE'
 
-likelihood_file = root+'DMRMlikelihood.h5'
-sky_file = root+'DMRMmaps_galaxy.h5'
+likelihood_file = root+'observables_likelihood.h5'
+sky_file = root+'observables_maps_galaxy.h5'
 
-likelihood_file_progenitor = root+'DMRMlikelihood_progenitor.h5'
-likelihood_file_galaxy = root+'DMRMlikelihood_galaxy.h5'
-likelihood_file_IGM = root+'DMRMlikelihood_IGM.h5'
+likelihood_file_progenitor = root+'observables_likelihood_progenitor.h5'
+likelihood_file_galaxy = root+'observables_likelihood_galaxy.h5'
+likelihood_file_IGM = root+'observables_likelihood_IGM.h5'
 
-likelihood_file_Full = root+'DMRMlikelihood_Full.h5'
+likelihood_file_Full = root+'observables_likelihood_Full.h5'
 
 
 def KeyProgenitor( model, measure='DM', axis='P' ):

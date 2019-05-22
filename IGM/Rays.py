@@ -245,7 +245,7 @@ def CreateSegment( lr, RS, redshift, n, ipix, length_minimum=0.5 ):
 
 
 ## create rays
-def CreateChoppedRaySegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift_max=redshift_max, ts=ts[:], redshift_accuracy=redshift_accuracy, seed=seed, force=False ):
+def CreateChoppedLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift_max=redshift_max, ts=ts[:], redshift_accuracy=redshift_accuracy, seed=seed, force=False ):
     ## creates files with random segments of LoS data of ray through yt-TimeSeries ts that contains grid data of snapshots at redshift_snapshots
     ## ipixs is a list of the indices given to the rays, defines how many rays are produced
 
@@ -253,7 +253,7 @@ def CreateChoppedRaySegments( ipixs, redshift_snapshots=redshift_snapshots[:], r
     ## if not forced to, produce ray only if its data isn't already written to file
     if not force:
         try:
-            with h5.File( DMRMrays_file, 'r' ) as f:
+            with h5.File( LoS_observables_file, 'r' ) as f:
                 for ipix in ipixs[:]:
                     try:
                         tmp = f[ '/'.join( [ model, 'chopped',  str(ipix), 'DM'] ) ]
@@ -313,8 +313,8 @@ def CreateChoppedRaySegments( ipixs, redshift_snapshots=redshift_snapshots[:], r
 
 
 ## reduce rays to LoS observables at redshift of interest
-def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], plot=False, models=[model] ):
-    ## collects segment files of ipix'th ray created by CreateChoppedRaySegments
+def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], plot=False, models=[model] ):
+    ## collects segment files of ipix'th ray created by CreateChoppedLoSSegments
     ## computes and returns observables for all models, that are provided with a |B|~rho relation in relation_file
     ## results are computed for sources located at redshift_skymaps   !!! rename redshift_skymaps
 
@@ -331,7 +331,7 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
         pass
     
     ## create empty array for results
-    DMRM_ray = np.zeros( (1+len(models),len(redshift_skymaps)-1) )
+    results = np.zeros( (2+len(models),len(redshift_skymaps)-1) )
 
     ## define B-rho-relation function for all models, given in relation_file
     f_renorm = [ np.genfromtxt( relation_file % m, names=True ) for m in models ]
@@ -387,18 +387,21 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
         direction = GetDirection( g['x'].value, g['y'].value, g['z'].value ) ## correctly scaled data results in wrong direction, use raw data instead 
         data['B_LoS'] = GetBLoS( data, direction=direction )
 
-        ## calculate DM RM for each cell   !!! add SM
-        DMRM = DispersionMeasure( data['Density'], data['dl'], data['redshift'], data['B_LoS'] )
+        ## calculate observables for each cell   !!! add SM
+        DM = DispersionMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'] )
+        RM = RotationMeasure( DM=DM, B_LoS=data['B_LoS'] )
+        SM = ScatteringMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
 
         ### compute RM for other models
         RMs = []
         for im, m in enumerate( models ):
             ## since RM propto B_LoS, apply B(rho) renormalization factor
-            RMs.append( DMRM[1] * renorm( im, data['Density'] / ( critical_density*OmegaBaryon*(1+data['redshift'])**3 ) ) ) ## density in terms of average (baryonic) density
+            RMs.append( RM * renorm( im, data['Density'] / ( critical_density*omega_baryon*(1+data['redshift'])**3 ) ) ) ## density in terms of average (baryonic) density
             
         if plot:
-            plt.loglog( 1+data['redshift'], DMRM[0] )
-            plt.plot( 1+data['redshift'], DMRM[1] )
+            plt.loglog( 1+data['redshift'], DM )
+            plt.plot( 1+data['redshift'], RM )
+            plt.plot( 1+data['redshift'], SM )
             print data['redshift'][0], data['redshift'][-1]
 
         ## sum up to corresponding redshift of interest in redshift_skymaps
@@ -410,21 +413,22 @@ def CreateLoSDMRM( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], 
             i_zs = np.where( (redshift_skymaps[i_map] <= data['redshift']) * (data['redshift'] < redshift_skymaps[i_map+1])  )[0]
             if len(i_zs) > 0:
                 ## sum DM
-                DMRM_ray[0,i_map] += np.sum( DMRM[0][i_zs] )
+                results[0,i_map] += np.sum( DM[i_zs] )
+                results[1,i_map] += np.sum( SM[i_zs] )
                 ## sum RM for different magnetic field models
                 for im, m in enumerate( models ):
-                    DMRM_ray[1+im,i_map] += np.sum( RMs[im][i_zs] )
+                    results[2+im,i_map] += np.sum( RMs[im][i_zs] )
         ## free memory
-        data, RMs = 0, 0
+        data, DM, RM, SM, RMs = 0, 0, 0, 0, 0
 
     if plot:
         plt.show()
 
-    return np.cumsum( DMRM_ray, axis=1 )
+    return np.cumsum( results, axis=1 )  ## return cumulative result, as results at low redshift add up to result at high redshift
 
 
-def CreateLoSsDMRM( remove=True, redshift_snapshots=redshift_snapshots[:], models=[model], N_workers=32, bunch=128 ):
-    ## collects all rays created by CreateChoppedRaySegments, computes their observables and writes them to DMRMrays_file
+def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:], models=[model], N_workers=32, bunch=128 ):
+    ## collects all rays created by CreateChoppedLoSSegments, computes their observables and writes them to LoS_observables_file
     ## computes observables for all models, that are provided with a |B|~rho relation in relation_file
     ## N_workers processes work parallel on bunch segments 
 
@@ -434,26 +438,26 @@ def CreateLoSsDMRM( remove=True, redshift_snapshots=redshift_snapshots[:], model
     pixs.sort()
     pixs = np.array(pixs)
 
-    ## CreateLoSDMRM does the actual job, use as pickleable function, feed it with the required keywords
-    f = partial( CreateLoSDMRM, remove=remove, models=models )
+    ## CreateLoSObservables does the actual job, use as pickleable function, feed it with the required keywords
+    f = partial( CreateLoSObservables, remove=remove, models=models )
 
     ## loop through bunches of ray indices
     for i in range(0, len(pixs), bunch ):
         ipixs = np.arange( i, min([i+bunch,len(pixs)]) )
         ## compute their LoS observables in parallel
         pool = multiprocessing.Pool( N_workers )
-        DMRM_rays = pool.map( f , pixs[ipixs] )
-#        DMRM_rays = map( f , pixs[ipixs] )  ## to check when parallel fails
+        LoS_observables = pool.map( f , pixs[ipixs] )
+#        LoS_observables = map( f , pixs[ipixs] )  ## to check when parallel fails
         pool.close()
         pool.join()
-        ## and write the results to DMRMrays_file, for all rays and considered models
-        for ipix, ray in zip( pixs[ipixs], DMRM_rays ):
+        ## and write the results to LoS_observables_file, for all rays and considered models
+        for ipix, LoS in zip( pixs[ipixs], LoS_observables ):
             for im, m in enumerate( models ):
-                CollectLoSDMRM( ray[np.array([0,1+im])], '/'.join( [ m, 'chopped',  str(ipix)] ) )
+                CollectLoSObservables( LoS[np.array([0,1,1+im])], '/'.join( [ m, 'chopped',  str(ipix)] ), measures=['DM','SM','RM'] )
 
 
 
-def CollectLoSDMRM( DMRM, key, measures=['DM','RM'] ):
-    ## write observables DMRM to DMRMrays_file at key_new
-    Write2h5( DMRMrays_file, DMRM, [ '/'.join( [ key, v ] ) for v in measures ] )
+def CollectLoSObservables( observables, key, measures=['DM', 'SM', 'RM'] ):
+    ## write observables to LoS_observables_file at key_new
+    Write2h5( LoS_observables_file, observables, [ '/'.join( [ key, v ] ) for v in measures ] )
 
