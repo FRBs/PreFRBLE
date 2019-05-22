@@ -62,12 +62,12 @@ def CollectRays( typ, remove=True ):
 
 def CollectRay( ipix, remove=True ):
     ## write h5 of single ray to rays_file
-    filename = root_rays + model + '/ray%i_%i.h5' % (ipix,npix),
+    filename = root_rays + model + '/ray%i_%i.h5' % (ipix,npix)
     with h5.File( filename, 'r' ) as fil:  ##     open ray file
         f = fil['grid']
-        for key in f.keys():          ##     for each data field
-            new_key = KeyNearRay( model_tag, nside, key )
-            Write2h5( rays_file, [f[key].value], [new_key] )
+        for measure in f.keys():          ##     for each data field
+            new_key = KeyNearRay( model_tag, nside, ipix, measure )
+            Write2h5( rays_file, [f[measure].value], [new_key] )
     if remove:
         os.remove( filename )             ##       remove ray file
 
@@ -82,7 +82,7 @@ def MakeNearRay( ipix, lr=None, observer_position=observer_position, collect=Fal
     ### provide lr = Lightray( dsz0 ) for pool computation
     
     ## write ray data to
-    filename = FileNearRay( ipix )
+    filename = FileNearRay( ipix, model=model, npix=npix )
     ## skip if ray was produced already
     if os.path.isfile( filename ):
         print 'skip %i' % ipix,
@@ -93,7 +93,7 @@ def MakeNearRay( ipix, lr=None, observer_position=observer_position, collect=Fal
     for off in [ 0., 0.0001, -0.0001]:  ## sometimes fails, when LoS is on axis. Try again with small offset
         try:
             direction = np.array( hp.pix2vec( nside, ipix) ) + off # shift to not move along edge of cells
-            start_position = path_length_code * direction + start_position
+            start_position = path_length_code * direction + observer_position
             lr.make_light_ray(   ## compute LoS and save to .h5 file
                 start_position = start_position,  # LoS starts at the edge and ends at observer
                 end_position = observer_position,  
@@ -113,16 +113,17 @@ def MakeNearRay( ipix, lr=None, observer_position=observer_position, collect=Fal
 
 
 
-def MakeNearRays( start_position=observer_position ):  ## works
+def MakeNearRays( observer_position=observer_position ):  ## works
     ## computes LoS in the last (z=0) snapshot until they leave the volume
     ##   in all directions from given start_position, direction defined by a healpix map, distance is maximum distance within constrained volume, i. e. 0.5*edgelength
     ## saves them to .h5 files
     
     ## make LightRay object of first data set with redshift = 0
-    f = partial( MakeNearRay, start_position=start_position, collect=False )  ## define as pickleable function to allow multiprocessing
+    f = partial( MakeNearRay, observer_position=observer_position, collect=False )  ## define as pickleable function to allow multiprocessing
 
     pool = multiprocessing.Pool( N_workers_MakeNearRays )
     pool.map( f , trange( npix ) )# , 1 )
+#    map( f , trange( npix ) )# , 1 )
     pool.close()
     pool.join()
 

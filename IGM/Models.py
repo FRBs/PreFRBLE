@@ -22,4 +22,5 @@ models = {
                     False,                              ## periodic
                     np.array([[0.25]*3,[0.75]*3]),      ## borders
                     60.,                                ## initial redshift
+                ]
 }

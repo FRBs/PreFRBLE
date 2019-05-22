@@ -63,6 +63,7 @@ def MakeDMRMRayLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', mode
                     break
             if len(rays) == 0:
                 continue
+            rays = np.array(rays)
             if absolute:
                 rays = np.abs(rays)
             ## for each redshift, compute the likelihood function of the bunch and add to full result, weighted by number of rays in current bunch

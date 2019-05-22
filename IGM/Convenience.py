@@ -16,20 +16,18 @@ from Models import *
 def histogram( data, bins=10, range=None, density=None, log=False ):
     ## compute histogram of data array, allows for log-scaled binning and probability density
     if log:
-        if range is None:
-            ## if not specified, use the min and max as range
-            range = tuple( np.log10( [np.min(data), np.max(data) ] ) )
-        else:
+        if range is not None:
             ## use log value of range
             range = np.log10(range)
         ## compute histogram of log data
         h, x = np.histogram( np.log10(data), bins=bins, range=range )
         ## unlog the true value
         x = 10.**x
+        h = h.astype('float64')
         if density:
-            h /= np.sum( h )*np.diff(x) 
+            h = h / ( np.sum( h )*np.diff(x) )
     else:
-        h, x = np.histogram( data, bins=bins, range=range, density=density )[0]
+        h, x = np.histogram( data, bins=bins, range=range, density=density )
     return h, x
 
 
@@ -88,7 +86,7 @@ def RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, reds
     redshift_snapshots.append( redshift_max_near )
 
     redshift_snapshots.sort()
-    return z_snaps, redshift_snapshots
+    return z_snaps, np.array(redshift_snapshots)
 
 def BoxFractions( ts, domain_width_code, redshift_snapshots ):
     ## get required max_box_fraction for each snapshot
@@ -124,12 +122,12 @@ def KeySkymap( z, model, typ, nside, measure ):
     ## get key in skymap_file
     return '/'.join( [ model, typ, str(nside), measure, '%.4f' % z ] )
 
-def KeyNearRay( model, nside, measure ):
+def KeyNearRay( model, nside, ipix, measure ):
     ## key in rays_file
-    return '/'.join( [ model, 'near',str(nside), measure ] )
+    return '/'.join( [ model, 'near',str(nside), str(ipix), measure ] )
 
 
-def FileNearRay( ipix ):
+def FileNearRay( ipix, model='primordial', npix=2**6 ):
     ## name of temporary file for constrained ray
     return root_rays + model + '/ray%i_%i.h5' % (ipix,npix)
 

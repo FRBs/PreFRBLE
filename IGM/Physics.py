@@ -4,7 +4,7 @@ Physical quantities and functions
 '''
 
 
-import yt
+import yt, numpy as np
 from yt.utilities.cosmology import Cosmology
 from yt.units import speed_of_light_cgs as speed_of_light
 

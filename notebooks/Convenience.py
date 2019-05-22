@@ -103,19 +103,17 @@ def GetLikelihood( contributor, model, density=True, **kwargs ):
 
 def histogram( data, bins=10, range=None, density=None, log=False ):
     if log:
-        if range is None:
-            range = tuple( np.log10( [np.min(data), np.max(data) ] ) )
-        else:
+        if range is not None:
             range = np.log10(range)
-        x = 10.**np.linspace( *range, num=bins+1)
-        h = np.histogram( np.log10(data), bins=bins, range=range, density=density )[0]        
+        h, x = np.histogram( np.log10(data), bins=bins, range=range )
+        x = 10.**x
+        h = h.astype('float64')
         if density:
-            h /= np.sum( h )*np.diff(x) 
+            h = h / ( np.sum( h )*np.diff(x) )
     else:
         if range is None:
             range = ( np.min(data), np.max(data) )
-        x = np.linspace( *range, num=bins+1)
-        h = np.histogram( data, bins=bins, range=range, density=density )[0]
+        h, x = np.histogram( data, bins=bins, range=range, density=density )
     return h, x
 
 def PlotLikelihood( x, P, density=False, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
