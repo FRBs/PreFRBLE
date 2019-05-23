@@ -12,7 +12,7 @@ from yt.units import speed_of_light_cgs as speed_of_light
 units = {
     'DM'       :r"pc cm$^{-3}$",
     'RM'       :r"rad m$^{-2}$",
-    'SM'       :r"kpc m$^{-20/3}",
+    'SM'       :r"kpc m$^{-20/3}$",
 }
 
 
@@ -61,7 +61,7 @@ outer_scale_0_IGM = 1 # pc           ## global outer scale assumed to compute SM
 co = Cosmology( hubble_constant=h, omega_matter=omega_matter, omega_lambda=omega_lambda, omega_curvature=omega_curvature )
 
 comoving_radial_distance = co.comoving_radial_distance  ## distance z0 to z1
-CriticalDensity = co.critical_density
+CriticalDensity = lambda redshift: co.critical_density( redshift ).in_cgs().value*1
 
 
 ## redshift <-> time
@@ -107,16 +107,16 @@ def RotationMeasure( DM=None, density=None, distance=None, redshift=None, B_LoS=
     ### DM in pc / cm^3
     ###   or
     ### density in g/cm^3
-    ### distance in kpc
+    ### distance in cm
     ###
     ###  B_LoS in G
-    if not DM:
+    if DM is None:
         DM = DispersionMeasure( density=density, distance=distance, redshift=redshift )
     return 0.81 * B_LoS * DM / (1+redshift) * 1e6 # rad / m^2
 
 def ScatteringMeasure( density=None, distance=None, redshift=None, outer_scale=None, omega_baryon=omega_baryon ):
     ## compute scattering measure SM (cf. Eq. 9 in Zhu et al. 2018)
     ### plasma density in g/cm^3
-    ### distance in kpc
+    ### distance in cm
     ### outer_scale in pc
-    return 1.42e-13 * (omega_baryon/0.049)**2 * outer_scale**(-2./3) * ( density/CriticalDensity(redshift) )**2 * (1+z)**4 * distance # kpc m**(-20/3)
+    return 1.42e-13 * (omega_baryon/0.049)**2 * outer_scale**(-2./3) * ( density/CriticalDensity(redshift) )**2 * (1+redshift)**4 * distance / kpc2cm # kpc m**(-20/3)

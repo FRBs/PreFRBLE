@@ -61,13 +61,15 @@ def PlotSkymap( z, measure='DM', typ='near', model=model, nside=nside, min=None,
         cmap = cm.BuGn_r
     elif measure == 'RM':
         cmap = cm.magma
+    elif measure == 'SM':
+        cmap = cm.YlGnBu_r
 
     ## read skymap from skymap_file
     sky = GetSkymap( z, model=model, typ=typ, measure=measure, nside=nside )
     if measure == 'RM':
         sky = np.abs(sky)
     fig, ax = plt.subplots( subplot_kw={'projection':"mollweide"}, figsize=(8,5) )
-    hp.mollview( sky, unit='%s (%s)' % (measure,units[measure]), title='%s, d = %.0f Mpc' % ( model, comoving_radial_distance(0,z).in_units('Mpc') ), min=min, max=max, norm = LogNorm(), cmap=cmap, hold=True )
+    hp.mollview( sky, unit='%s / (%s)' % (measure,units[measure]), title='%s, d = %.0f Mpc' % ( model, comoving_radial_distance(0,z).in_units('Mpc') ), min=min, max=max, norm = LogNorm(), cmap=cmap, hold=True )
     
 
     skyfile = root_skymaps+model+'_%s_z%1.4f.png'
@@ -95,3 +97,36 @@ def PlotSkymaps( measure='DM', typ='near', model=model, nside=nside, min=None, m
     for z in redshift_skymaps_near[1:]:
         PlotSkymap( z, measure=measure, typ=typ, model=model, nside=nside, min=min_, max=max_ )
     return;
+
+units['SM'] = r"m$^{-17/3}$"
+
+
+def PlotNearRays( measure='DM', nside=nside, model=model ):
+    with h5.File( skymap_file ) as f:
+        Ms = []
+        zs = f['%s/near/%i/%s' % ( model, nside, measure) ].keys()
+        for z in zs:
+            Ms.append( f['%s/near/%i/%s/%s' % ( model, nside, measure,z)] .value )
+    Ms = np.array( Ms ).transpose()
+    Ms *= kpc2cm/100
+    zs = np.array( zs, dtype='float' )
+    for M in Ms:
+        plt.plot( zs, M )
+    plt.yscale('log')
+    plt.ylabel( '%s / (%s) ' % (measure, units[measure] ) )
+    plt.xlabel('redshift' )
+    plt.savefig( root_rays + "%s_redshift_near_%s.png" % ( measure, model ) )
+    plt.close()
+
+
+def PlotFarRays( measure='DM', nside=nside, model=model ):
+    with h5.File( LoS_observables_file ) as f:
+        for i in f['%s/chopped/' % model].keys():
+            SM = f['%s/chopped/%s/%s' % ( model, i, measure ) ].value
+            SM *= kpc2cm/100
+            plt.plot( np.arange(0.1,6.1,0.1) , SM )
+    plt.yscale('log')
+    plt.ylabel( '%s / (%s) ' % ( measure, units[measure] ) )
+    plt.xlabel( 'redshift' )
+    plt.savefig( root_rays + "%s_redshift_%s.png" % ( measure, model ) )
+    plt.close()

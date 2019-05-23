@@ -5,7 +5,7 @@ Note that the light-travel distance between snapshots exceeds the simulation vol
 
 '''
 
-from Rays import CreateChoppedLoSSegments, CreateLoSsObservables
+from Rays import CreateLoSSegments, CreateLoSsObservables
 from LikelihoodFunctions import MakeFarLikelihoodFunction
 from multiprocessing import Pool
 from time import time
@@ -26,22 +26,23 @@ RM_range = [ 1e-6, 1e3 ] ## range for the likelihood function of |RM|
 ### these temp files can take up huge amounts of space, before they are reduced to their observables. For a huge number of LoS, repeat the first to steps - extraction and reduction - with a smaller number of LoS that your system can digest. It is also advised to perform this lengthy computation in parallel on several nodes by calling this file with different 'off'. If you know a more elegant version, let me know! - shackste
 
 ##   technical parameters
-span_tot = 32   ## number of LoS to be computed
+span_tot = 2   ## number of LoS to be computed
 off = 0          ## index number of the first LoS
-N_workers = 4   ## number of processes to work in parallel
+N_workers = 2 #4   ## number of processes to work in parallel
 
 span=span_tot/N_workers ##  size of bunch to be computed by single process
 r = [ range(i+off, i+span+off) for i in range(0,span_tot,span) ]  ## bunches of LoS indices to be produced by the individual process
 
 ## extract raw data along segments that form LoS
 pool = Pool(N_workers)
-pool.map( CreateChoppedLoSSegments, r  )
+#pool.map( CreateLoSSegments, r  )
+#map( CreateLoSSegments, r  )
 pool.close()
 pool.join()
 
 
 ## combine segments to full LoS and reduce raw data to LoS observables, results saved to LoS_observables_file
-CreateLoSsObservables( models=models )
+CreateLoSsObservables( models=models, remove=False )
 
 ### repeat the steps above until you reach a decent amount of LoS reduced to observables in LoS_observables_file
 ### then continue with the functions below to obtain the likelihood function

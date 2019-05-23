@@ -99,7 +99,7 @@ def MakeNearRay( ipix, lr=None, observer_position=observer_position, collect=Fal
 
 
 
-def MakeNearRays( observer_position=observer_position ):  ## works
+def MakeNearRays( observer_position=observer_position, N_workers=N_workers_MakeNearRays ):  ## works
     ## computes LoS in the last (z=0) snapshot until they leave the volume
     ##   in all directions from given start_position, direction defined by a healpix map, distance is maximum distance within constrained volume, i. e. 0.5*edgelength
     ## saves them to .h5 files
@@ -109,14 +109,14 @@ def MakeNearRays( observer_position=observer_position ):  ## works
 
 
     ### !!!! this map ends too early, after producing the first round of rays... why ????
-    pool = multiprocessing.Pool( N_workers_MakeNearRays )
+    pool = multiprocessing.Pool( N_workers )
     pool.map( f , range( npix ) )# , 1 )
 #    map( f , range( npix ) )
     pool.close()
     pool.join()
 
     ## collect ray files to a single h5
-#    CollectRays( remove=False )
+    CollectRays( remove=False )
 
 
 
@@ -233,7 +233,7 @@ def CreateSegment( lr, RS, redshift, n, ipix, length_minimum=0.5 ):
 
 
 ## create rays
-def CreateChoppedLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift_max=redshift_max, ts=ts[:], redshift_accuracy=redshift_accuracy, seed=seed, force=False ):
+def CreateLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift_max=redshift_max, ts=ts[:], redshift_accuracy=redshift_accuracy, seed=seed, force=False ):
     ## creates files with random segments of LoS data of ray through yt-TimeSeries ts that contains grid data of snapshots at redshift_snapshots
     ## ipixs is a list of the indices given to the rays, defines how many rays are produced
 
@@ -302,7 +302,7 @@ def CreateChoppedLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], r
 
 ## reduce rays to LoS observables at redshift of interest
 def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], plot=False, models=[model] ):
-    ## collects segment files of ipix'th ray created by CreateChoppedLoSSegments
+    ## collects segment files of ipix'th ray created by CreateLoSSegments
     ## computes and returns observables for all models, that are provided with a |B|~rho relation in relation_file
     ## results are computed for sources located at redshift_skymaps   !!! rename redshift_skymaps
 
@@ -377,7 +377,7 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
 
         ## calculate observables for each cell   !!! add SM
         DM = DispersionMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'] )
-        RM = RotationMeasure( DM=DM, B_LoS=data['B_LoS'] )
+        RM = RotationMeasure( DM=DM, B_LoS=data['B_LoS'], redshift=data['redshift'] )
         SM = ScatteringMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
 
         ### compute RM for other models
@@ -400,7 +400,7 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
             ## find all  contributors in redshift range
             i_zs = np.where( (redshift_skymaps[i_map] <= data['redshift']) * (data['redshift'] < redshift_skymaps[i_map+1])  )[0]
             if len(i_zs) > 0:
-                ## sum DM
+                ## sum DM, SM
                 results[0,i_map] += np.sum( DM[i_zs] )
                 results[1,i_map] += np.sum( SM[i_zs] )
                 ## sum RM for different magnetic field models
@@ -415,8 +415,8 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
     return np.cumsum( results, axis=1 )  ## return cumulative result, as results at low redshift add up to result at high redshift
 
 
-def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:], models=[model], N_workers=32, bunch=128 ):
-    ## collects all rays created by CreateChoppedLoSSegments, computes their observables and writes them to LoS_observables_file
+def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:], models=[model], N_workers=N_workers_ReadRays, bunch=128 ):
+    ## collects all rays created by CreateLoSSegments, computes their observables and writes them to LoS_observables_file
     ## computes observables for all models, that are provided with a |B|~rho relation in relation_file
     ## N_workers processes work parallel on bunch segments 
 
@@ -434,8 +434,8 @@ def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:]
         ipixs = np.arange( i, min([i+bunch,len(pixs)]) )
         ## compute their LoS observables in parallel
         pool = multiprocessing.Pool( N_workers )
-        LoS_observables = pool.map( f , pixs[ipixs] )
-#        LoS_observables = map( f , pixs[ipixs] )  ## to check when parallel fails
+#        LoS_observables = pool.map( f , pixs[ipixs] )
+        LoS_observables = map( f , pixs[ipixs] )  ## to check when parallel fails
         pool.close()
         pool.join()
         ## and write the results to LoS_observables_file, for all rays and considered models

@@ -24,10 +24,10 @@ RM_range_log = (1e-6,1e2)   ## range of likelihood function of log( |RM| )
 
 
 ## from IGM simulation, read raw data of cells along the LoS and collect them to rays_file
-MakeNearRays()
+#MakeNearRays()
 
-sys.exit()
-CollectRays()
+#sys.exit()
+CollectRays( remove=False )
 
 ## compute observables from raw data and save it to full-sky maps in skymap_file
 MakeNearSkymaps( models=models )
