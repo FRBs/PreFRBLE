@@ -15,14 +15,17 @@ intervening galaxies:
 - d n_gal / d M / d z, newer observations? (ask Jochen)
 
 scattering:
-- add scattering measure SM
-  - compute with L_0 = 1, correct in postprocessing
-  - Convenience: DispersionMeasure
-  - Rays: CollectLoSDMRM
-    	  CreateLoSsDMRM
-	  CreateLoSDMRM
-	  MakeNewSkymaps_MultipleModels
-
+- add scattering measure SM				DONE
+  - compute with L_0 = 1, correct in postprocessing 	DONE
+  - Convenience: DispersionMeasure			DONE
+  - Rays: CollectLoSDMRM				DONE
+    	  CreateLoSsDMRM				DONE
+	  CreateLoSDMRM					DONE
+  - Skymaps: MakeNearSkymaps_MultipleModels		DONE
+  - execute: MakeNearProbability			DONE
+    	     MakeFarProbability				DONE
+- test procedure
+- compare to literature (e. g. Macquart & Koay 2018) 
 
 
 

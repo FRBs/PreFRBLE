@@ -5,8 +5,8 @@ Note that the light-travel distance between snapshots exceeds the simulation vol
 
 '''
 
-from Rays import CreateChoppedRaySegments, CreateLoSsDMRM
-from LikelihoodFunctions import MakeDMRMRayLikelihoodFunction
+from Rays import CreateChoppedLoSSegments, CreateLoSsObservables
+from LikelihoodFunctions import MakeFarLikelihoodFunction
 from multiprocessing import Pool
 from time import time
 t0 = time()
@@ -33,15 +33,15 @@ r = [ range(i+off, i+span+off) for i in range(0,span_tot,span) ]  ## bunches of 
 
 ## extract raw data along segments that form LoS
 pool = Pool(N_workers)
-#pool.map( CreateChoppedRaySegments, r  )
+pool.map( CreateChoppedLoSSegments, r  )
 pool.close()
 pool.join()
 
 
-## combine segments to full LoS and reduce raw data to LoS observables, results saved to DMRMrays_file
-#CreateLoSsDMRM( models=models )
+## combine segments to full LoS and reduce raw data to LoS observables, results saved to LoS_observables_file
+CreateLoSsObservables( models=models )
 
-### repeat the steps above until you reach a decent amount of LoS reduced to observables in DMRMrays_file
+### repeat the steps above until you reach a decent amount of LoS reduced to observables in LoS_observables_file
 ### then continue with the functions below to obtain the likelihood function
 
 
@@ -49,9 +49,9 @@ pool.join()
 ## compute the likelihood function as probability density of observables from LoS and write to probability_file_IGM
 ## compute likelihood functions of DM and |RM|, only the latter differ between magnetic field models
 bunch = 128  ## bunch size for internal computation, too big crashes memory
-P = MakeDMRMRayLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
+P = MakeFarLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
 for model in models:
-    P = MakeDMRMRayLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
+    P = MakeFarLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
 
 print "This took %.0f seconds" % (time()-t0)
 

@@ -11,9 +11,9 @@ import numpy as np
 ## file roots   ### !!!! how to handle the file structure?
 
 rays_file = root_FRB + 'rays.h5'
-DMRMrays_file = root_FRB + 'DMRMrays.h5'
-skymap_file = root_FRB + 'DMRMmap.h5'
-likelihood_file_IGM = root_FRB + 'DMRMlikelihood_IGM.h5'
+LoS_observables_file = root_FRB + 'LoS_observables.h5'
+skymap_file = root_FRB + 'observables_map.h5'
+likelihood_file_IGM = root_FRB + 'observables_likelihood_IGM.h5'
 relation_file = root_data+"B_renorm_%s.txt" 
 
 models = {

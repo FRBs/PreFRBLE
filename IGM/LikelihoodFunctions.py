@@ -36,14 +36,14 @@ def MakeNearLikelihoodFunction( model=model, measure='DM', nside=nside, bins=30,
 
     
 
-def MakeDMRMRayLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=model, absolute=True ):
-    ## compute likelihood function of LoS observables of "chopped" rays at high redshift in DMRMrays_file
+def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=model, absolute=True ):
+    ## compute likelihood function of LoS observables of "chopped" rays at high redshift in LoS_observables_file
 
     ## empty array for final results
     histograms = np.zeros([len(redshift_skymaps[1:]),nbins])
     i_ray, n_iter, n_rays = 0, 0, 0
 
-    with h5.File( DMRMrays_file ) as f:
+    with h5.File( LoS_observables_file ) as f:
         ## find the number of rays to be considered
         i_ray_max = max( np.array( f["/%s/chopped" % model].keys() ).astype('i') )
 
