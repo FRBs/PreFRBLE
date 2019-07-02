@@ -26,8 +26,8 @@ r = [ range(i+off, i+span+off) for i in range(0,span_tot,span) ]  ## bunches of 
 
 ## extract raw data along segments that form LoS
 pool = Pool(N_workers)
-pool.map( CreateLoSSegments, r  )
-#map( CreateLoSSegments, r  )
+#pool.map( CreateLoSSegments, r  )
+map( CreateLoSSegments, r  )
 pool.close()
 pool.join()
 

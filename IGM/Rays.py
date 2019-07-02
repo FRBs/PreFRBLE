@@ -243,7 +243,7 @@ def CreateLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift
             with h5.File( LoS_observables_file, 'r' ) as f:
                 for ipix in ipixs[:]:
                     try:
-                        tmp = f[ '/'.join( [ model, 'chopped',  str(ipix), 'DM'] ) ]
+                        tmp = f[ '/'.join( [ model, 'chopped',  str(ipix), 'DM' + 'overestimate'*overestimate_SM] ) ]
                         ipixs.remove(ipix)
                     except:
                         pass
@@ -263,14 +263,16 @@ def CreateLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift
 
     RS = np.random.RandomState( seed * ( 1 + ipixs[0] ) )    
     ## index of earliest snapshot to be probed == number of snapshots to be probed
-    n_snaps = np.where( np.round( redshift_snapshots, redshift_accuracy ) >= redshift_max )[0][0]
-    redshift = redshift_max
+#    n_snaps = np.where( np.round( redshift_snapshots, redshift_accuracy ) >= redshift_max )[0][0]
+    n_snaps = len( redshift_snapshots ) - 1
+    #    redshift = redshift_max
     n = np.zeros( len(ipixs) )
     ## for all snapshots, starting with the earliest
     for i_snap in range(n_snaps)[::-1]:
     ## load snapshot
         lr = LightRay( ts[i_snap] )
-        redshift = redshift_snapshots[1:][i_snap]
+        ## set time when rays should enter the snapshot
+        redshift = redshift_snapshots[1+i_snap]
         new = True
         flags = np.ones( len(ipixs) ) ## flag whether more segments are needed
         while np.any( flags ):
@@ -350,8 +352,9 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
             print f, "has no 'grid' "
             return;
         ## correct data (smooth redshift dependence and B, which is saved wrongly by ENZO)
-        ##   find redshift of current snapshot.  snapshots are used for z < redshsift_snapshot, only the z=0 snapshot is used at higher redshift < redshift_trans. To account for that, compare to redshift_snapshots[1:], where redshift[1] is redshift_trans
-        i_snap = np.where( np.round(redshift_snapshots[1:], redshift_accuracy) >= g['redshift'].value.max() )[0][0] ## !!! check if redshift_near is removed
+        ##   find redshift of current snapshot. redshift_snapshots[i:i_1] indicates interval of i'th snapshot. 
+        ##   the ray starts witin the redshift range used for this snapshot, but may leave it at low z, so use max(z)
+        i_snap = np.where( redshift_snapshots[1:] >= g['redshift'].value.max() )[0][0] ## !!! check if redshift_near is removed # yes, it is
         redshift_snapshot = z_snaps[ i_snap ]        
         ##   correction factor scales data from redshift_snapshot to redshift of cell
         a = ScaleFactor( g['redshift'].value, redshift_snapshot )
@@ -426,6 +429,10 @@ def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:]
     ## computes observables for all models, that are provided with a |B|~rho relation in relation_file
     ## N_workers processes work parallel on bunch segments 
 
+    if not overestimate_SM:  ###   remove that !!! , safetynet for first test
+        print( 'overestimate_SM not set correctly!!' )
+        ik = zorn
+
     ## find all segment files and read their indices
     files = glob( root_rays+model+'/*segment000*.h5' )
     pixs = map( lambda f: int( f.split('pix')[-1].split('.h5')[0] ), files )
@@ -453,5 +460,12 @@ def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:]
 
 def CollectLoSObservables( observables, key, measures=['DM', 'SM', 'RM'] ):
     ## write observables to LoS_observables_file at key_new
-    Write2h5( LoS_observables_file, observables, [ '/'.join( [ key, v ] ) for v in measures ] )
+    Write2h5( LoS_observables_file, 
+              observables, 
+              [ 
+                  '/'.join( 
+                      [ key, v + '_overestimate'*overestimate_SM ] 
+                  ) for v in measures
+              ] 
+    )
 

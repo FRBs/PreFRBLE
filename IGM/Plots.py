@@ -120,32 +120,35 @@ def PlotNearRays( measure='DM', nside=nside, model=model ):
 
 import yt
 
-def PlotFarRays( measure='DM', nside=nside, model=model, mean=False, uniform=False ):
+def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, save_mean=True, uniform=False, plot_single_rays=False, overestimate_SM=False ):
     Ms = []
     with h5.File( LoS_observables_file ) as f:
         for i in f['%s/chopped/' % model].keys():
-            M = f['%s/chopped/%s/%s' % ( model, i, measure ) ].value
+            M = f['%s/chopped/%s/%s' % ( model, i, measure + 'overestimate'*overstimate_SM ) ].value
             if measure == 'SM':
                 M *= kpc2cm/100   * 1e-12
             Ms.append( M )
-            plt.plot( np.arange(0.1,6.1,0.1) , M )
-    plt.yscale('log')
-    if measure == 'SM':
-        plt.ylim(2e0,2e5)
-    plt.xlim(0,2)
-    plt.ylabel( '%s / (%s) ' % ( measure, units[measure] ) )
-    plt.xlabel( 'redshift' )
-    plt.savefig( root_rays + "%s_redshift_%s.png" % ( measure, model ) )
-    plt.close()
+            if plot_single_rays:
+                plt.plot( np.arange(0.1,6.1,0.1) , M )
+    if plot_single_rays:
+        plt.yscale('log')
+        if measure == 'SM':
+            plt.ylim(2e0,2e5)
+        plt.xlim(0,2)
+        plt.ylabel( '%s / (%s) ' % ( measure, units[measure] ) )
+        plt.xlabel( 'redshift' )
+        plt.savefig( root_rays + "%s_redshift_%s.png" % ( measure, model ) )
+        plt.close()
 
     if mean: 
         zs = np.arange(0.0,6.1,0.1)
 ##        Ms = np.cumsum( Ms, axis=1 )  #### !!!! double cumsum?? results are written as cumsum
 #        plt.errorbar( np.arange(0.1,6.1,0.1) , np.mean(Ms, axis=0), np.std(Ms, axis=0 ) )
         Ms_mean, Ms_std = np.mean(Ms, axis=0), np.std(Ms, axis=0 )
-        plt.plot( zs[1:] , Ms_mean, label='mean', linewidth=2 )
+        plt.plot( zs[1:] , Ms_mean, label='mean' + ' overestimate'*overestimate_SM, linewidth=2 )
         plt.plot( zs[1:] , Ms_mean + Ms_std, linestyle=':', label='stddev' )
         if uniform:
+            ## print prediction for homogeneous ICM
             zs = np.arange(0.0,6.1,0.01)  ## 0.01 leads to 3% accuracy of results
             dl = np.array([ luminosity_distance( z0, z1 ) for z0, z1 in zip( zs, zs[1:] ) ])
             if measure == 'SM':
@@ -176,8 +179,9 @@ def PlotFarRays( measure='DM', nside=nside, model=model, mean=False, uniform=Fal
             plt.ylim(2e0,2e5)
         plt.xlim(0,2)
 #            plt.ylim(2e10,2e17)
-        plt.savefig( root_rays + "%s_mean_redshift_%s.png" % ( measure, model ) )
-        plt.close()
+        if save_mean:
+            plt.savefig( root_rays + "%s_mean_redshift_%s.png" % ( measure, model ) )
+            plt.close()
 
 
     
