@@ -77,13 +77,14 @@ def RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, reds
     ## cut all redshifts >= redshift_max
     z_snaps = np.array(z_snaps)
     redshift_snapshots = list( z_snaps[ np.where( z_snaps < redshift_max ) ] )
+    ## in case redshift_max is not in z_snaps, add to list
     if np.round(redshift_snapshots[0],redshift_accuracy) == 0: 
         # if final snapshot is at z=0, use it from half time since previous snapshot ( add redshift of transition to list )
         redshift_snapshots.append( redshift_trans )
     else:
         ## use final snapshot until z=0 (add 0 to list)
         redshift_snapshots.append( 0. )  
-    redshift_snapshots.append( redshift_max_near )
+#    redshift_snapshots.append( redshift_max_near ) ### only needed if far rays should contain constrained segment in final snapshot. However, this is very misleading, as the rest of the LoS is not constrained, hence the full LoS is not constrained and nothing is won by considering that in the final shot. Hence, never use!!!
 
     redshift_snapshots.sort()
     return z_snaps, np.array(redshift_snapshots)

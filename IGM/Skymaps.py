@@ -33,7 +33,8 @@ def MakeNearSkymaps( models=[model] ):
     ##     compute observables
         DM = DispersionMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'] )
         RM = RotationMeasure( DM=DM, B_LoS=data['B_LoS'], redshift=data['redshift'] )
-        SM = ScatteringMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
+        SM = ScatteringMeasure_ZHU( density=data['Density'], dredshift=data['dredshift'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
+#        SM = ScatteringMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
     ##     compute RM for magnetic field models
         RMs = []
         for im, m in enumerate( models ):

@@ -203,13 +203,12 @@ def CreateSegment( lr, RS, redshift, n, ipix, length_minimum=0.5 ):
         ## calculate end position
         end_position = start_position + length * direction
     
-        ## check whether 
         ## reduce length, such that the LoS doesnt overshoot the probed volume
         for i in range(3): ## in each direction
             if border[0][i] > end_position[i]:   ## if border is exceeded
-                length *=   ( border[0][i] - start_position[i] ) / ( length*direction[i] )  ## reduce length to hit that border, l = l * b_i/l_i
-            elif border[1][i] < end_position[i]: ## at both sides
-                length *= - ( border[1][i] - start_position[i] ) / ( length*direction[i] )  ## reduce length to hit that border, l = l * b_i/l_i
+                length *= ( start_position[i] - border[0][i] ) / ( start_position[i] - end_position[i] )  ## reduce length to hit that border, l = l * b_i/l_i
+            elif border[1][i] < end_position[i]: ## check at both sides
+                length *= ( start_position[i] - border[1][i] ) / ( start_position[i] - end_position[i] )  ## reduce length to hit that border, l = l * b_i/l_i
         ## correct end position with reduced length
         end_position = start_position + length * direction
 
@@ -250,18 +249,20 @@ def CreateLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift
                         pass
         except:
             pass
-        ## prevent the case of call eith empty ipixs
+        ## prevent the case of call with empty ipixs
         if len(ipixs) == 0:
             return;
 
-    ## exclude constrained near ray, go to z=0 instead  !!! remove completely
+    ''' remove completely
+    ## exclude constrained near ray, go to z=0 instead  
     try:
         redshift_snapshots.remove( redshift_max_near )
     except:
         pass
+    '''
 
     RS = np.random.RandomState( seed * ( 1 + ipixs[0] ) )    
-    ## index of earliest snapshot to be probed
+    ## index of earliest snapshot to be probed == number of snapshots to be probed
     n_snaps = np.where( np.round( redshift_snapshots, redshift_accuracy ) >= redshift_max )[0][0]
     redshift = redshift_max
     n = np.zeros( len(ipixs) )
@@ -309,14 +310,16 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
 
 
     field_types = fields[:]     ## requested fields
-    field_types.extend(['x', 'y', 'z','redshift', 'dl'])  ## add cell center positions, redshift and pathlengths within cells
+    field_types.extend(['x', 'y', 'z','redshift', 'dl', 'dredshift'])  ## add cell center positions, redshift and pathlengths within cells
     field_types.append( 'B_LoS' ) ## add magnetic field parallel to LoS
 
+    '''
     ## exclude constrained near ray, go to z=0 instead  !!! remove completely
     try:
         redshift_snapshots.remove( redshift_max_near )
     except:
         pass
+    '''
     
     ## create empty array for results
     results = np.zeros( (2+len(models),len(redshift_skymaps)-1) )
@@ -375,10 +378,11 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
         direction = GetDirection( g['x'].value, g['y'].value, g['z'].value ) ## correctly scaled data results in wrong direction, use raw data instead 
         data['B_LoS'] = GetBLoS( data, direction=direction )
 
-        ## calculate observables for each cell   !!! add SM
+        ## calculate observables for each cell
         DM = DispersionMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'] )
         RM = RotationMeasure( DM=DM, B_LoS=data['B_LoS'], redshift=data['redshift'] )
-        SM = ScatteringMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
+        SM = ScatteringMeasure_ZHU( density=data['Density'], dredshift=data['dredshift'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
+#        SM = ScatteringMeasure( density=data['Density'], distance=data['dl'], redshift=data['redshift'], outer_scale=outer_scale_0_IGM )
 
         ### compute RM for other models
         RMs = []
@@ -387,10 +391,12 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
             RMs.append( RM * renorm( im, data['Density'] / ( critical_density*omega_baryon*(1+data['redshift'])**3 ) ) ) ## density in terms of average (baryonic) density
             
         if plot:
-            plt.loglog( 1+data['redshift'], DM )
-            plt.plot( 1+data['redshift'], RM )
-            plt.plot( 1+data['redshift'], SM )
-            print data['redshift'][0], data['redshift'][-1]
+            plt.plot( data['redshift'], data['Density'], color='black' )
+
+#            plt.loglog( 1+data['redshift'], DM )
+#            plt.plot( 1+data['redshift'], RM )
+#            plt.plot( 1+data['redshift'], SM )
+#            print data['redshift'][0], data['redshift'][-1]
 
         ## sum up to corresponding redshift of interest in redshift_skymaps
         for i_map in range( len( redshift_skymaps ) - 1 ):
@@ -409,13 +415,13 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
         ## free memory
         data, DM, RM, SM, RMs = 0, 0, 0, 0, 0
 
-    if plot:
-        plt.show()
+#    if plot:
+#        plt.show()
 
     return np.cumsum( results, axis=1 )  ## return cumulative result, as results at low redshift add up to result at high redshift
 
 
-def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:], models=[model], N_workers=N_workers_ReadRays, bunch=128 ):
+def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:], models=[model], N_workers=N_workers_ReadRays, bunch=128, plot=False ):
     ## collects all rays created by CreateLoSSegments, computes their observables and writes them to LoS_observables_file
     ## computes observables for all models, that are provided with a |B|~rho relation in relation_file
     ## N_workers processes work parallel on bunch segments 
@@ -427,7 +433,7 @@ def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:]
     pixs = np.array(pixs)
 
     ## CreateLoSObservables does the actual job, use as pickleable function, feed it with the required keywords
-    f = partial( CreateLoSObservables, remove=remove, models=models )
+    f = partial( CreateLoSObservables, remove=remove, models=models, redshift_snapshots=redshift_snapshots, plot=plot )
 
     ## loop through bunches of ray indices
     for i in range(0, len(pixs), bunch ):
