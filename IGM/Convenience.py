@@ -80,7 +80,8 @@ def RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, reds
     z_snaps = np.array(z_snaps)
     redshift_snapshots = list( np.round( z_snaps[ np.where( z_snaps < redshift_max ) ] , redshift_accuracy) )
     ## in case redshift_max is not in z_snaps, add to list
-    redshift_snapshots.append( redshift_max )
+    if not redshift_max in redshift_snapshots:
+        redshift_snapshots.append( redshift_max )
     if not overestimate_SM:
         ## if no additional value is added, the snapshots will be used until their redshift is reached; used before their time has come. This overestimates how fast structure forms, allowing for higher density peaks at earlier times. 
         ## if another value is added, snapshots will be used once their snapshot is reached; used when their time has come. This underestimates the following structure formation

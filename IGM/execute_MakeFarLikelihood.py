@@ -14,6 +14,8 @@ t0 = time()
 
 models=['primordial', 'astrophysical']  ## models to be considered for the magnetic field, provided as B~rho relations in relations_file
 
+models = ['primordial', 'B9b', 'B9.5b', 'B10.0b', 'B10.5b', 'B11b', 'B13b', 'B15b', 'B17b' ]
+
 ## parameters for the likelihood fuction
 bins = 100  ## number of bins for the likelihood functions
 DM_range = [ 1e1, 1e4 ]  ## range for the likelihood function of DM
@@ -53,13 +55,14 @@ CreateLoSsObservables( models=models, remove=False )
 ## compute the likelihood function as probability density of observables from LoS and write to probability_file_IGM
 ## compute likelihood functions of DM and |RM|, only the latter differ between magnetic field models
 bunch = 128  ## bunch size for internal computation, too big crashes memory
-#P = MakeFarLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
-#PlotLikelihoods( measure='DM', model='primordial', typ='far' )
-#P = MakeFarLikelihoodFunction( bins, SM_range, measure='SM', absolute=False, bunch=bunch, model='primordial' )
+P = MakeFarLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
+PlotLikelihoods( measure='DM', model='primordial', typ='far' )
+P = MakeFarLikelihoodFunction( bins, SM_range, measure='SM', absolute=False, bunch=bunch, model='primordial' )
 PlotLikelihoods( measure='SM', model='primordial', typ='far', plot_every=10 )
-#for model in models:
-#    P = MakeFarLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
-#    PlotLikelihoods( measure='RM', model=model, typ='far', absolute=True )
+for model in models:
+    print model
+    P = MakeFarLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
+    PlotLikelihoods( measure='RM', model=model, typ='far', absolute=True )
 print "This took %.0f seconds" % (time()-t0)
 
 

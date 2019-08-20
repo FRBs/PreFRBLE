@@ -11,7 +11,7 @@ for 'near" (within constrained volume) and "chopped" (high redshift) LoS.
 '''
 
 
-import numpy as np, yt, os, h5py as h5, healpy as hp, multiprocessing, time
+import numpy as np, yt, os, h5py as h5, healpy as hp, multiprocessing, time, bisect
 import matplotlib.pyplot as plt
 from glob import glob
 from functools import partial
@@ -304,7 +304,7 @@ def CreateLoSSegments( ipixs, redshift_snapshots=redshift_snapshots[:], redshift
 
 
 ## reduce rays to LoS observables at redshift of interest
-def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], plot=False, models=[model] ):
+def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapshots[:], plot=False, models=[model], renorm=None ):
     ## collects segment files of ipix'th ray created by CreateLoSSegments
     ## computes and returns observables for all models, that are provided with a |B|~rho relation in relation_file
     ## results are computed for sources located at redshift_skymaps   !!! rename redshift_skymaps
@@ -327,11 +327,13 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
     results = np.zeros( (2+len(models),len(redshift_skymaps)-1) )
 
     ## define B-rho-relation function for all models, given in relation_file
-    f_renorm = [ np.genfromtxt( relation_file % m, names=True ) for m in models ]
-    def renorm( i, rho ):
-        f_rho = f_renorm[i]['density']
-        ix = np.array( [ np.where( f_renorm[i]['density'] >= rhoi )[0][0] for rhoi in rho ] )
-        return f_renorm[i]['Renorm'][ix]
+    if renorm is None:
+        f_renorm = [ np.genfromtxt( relation_file % m, names=True ) for m in models ]
+        def renorm( i, rho ):
+            f_rho = f_renorm[i]['density']
+            ix = np.array( [ bisect.bisect_left( f_renorm[i]['density'], rhoi ) for rhoi in rho ] )
+#            ix = np.array( [ np.where( f_renorm[i]['density'] >= rhoi )[0][0] for rhoi in rho ] )
+            return f_renorm[i]['Renorm'][ix]
 
 
     ## find all segment files of the ray
@@ -404,10 +406,13 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
         ## sum up to corresponding redshift of interest in redshift_skymaps
         for i_map in range( len( redshift_skymaps ) - 1 ):
             ## skip maps not covered by ray
-            if redshift_skymaps[i_map] > redshift_snapshot or redshift_skymaps[i_map+1] < redshift_snapshots[i_snap] :
+            if redshift_skymaps[i_map] > redshift_snapshots[i_snap+1] or redshift_skymaps[i_map+1] < redshift_snapshots[i_snap] :
                 continue
             ## find all  contributors in redshift range
             i_zs = np.where( (redshift_skymaps[i_map] <= data['redshift']) * (data['redshift'] < redshift_skymaps[i_map+1])  )[0]
+#            print i_map, 'range', redshift_skymaps[i_map], redshift_skymaps[i_map+1],
+#            print 'data', np.round(data['redshift'].min(),2), np.round( data['redshift'].max(),2),
+#            print 'i_zs', len(i_zs)
             if len(i_zs) > 0:
                 ## sum DM, SM
                 results[0,i_map] += np.sum( DM[i_zs] )
@@ -421,6 +426,9 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
 #    if plot:
 #        plt.show()
 
+#    if ipix == 0:
+#        print 'different?', results[0]
+
     return np.cumsum( results, axis=1 )  ## return cumulative result, as results at low redshift add up to result at high redshift
 
 
@@ -429,9 +437,9 @@ def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:]
     ## computes observables for all models, that are provided with a |B|~rho relation in relation_file
     ## N_workers processes work parallel on bunch segments 
 
-    if not overestimate_SM:  ###   remove that !!! , safetynet for first test
-        print( 'overestimate_SM not set correctly!!' )
-        ik = zorn
+#    if not overestimate_SM:  ###   remove that !!! , safetynet for first test
+#        print( 'overestimate_SM not set correctly!!' )
+#        ik = zorn
 
     ## find all segment files and read their indices
     files = glob( root_rays+model+'/*segment000*.h5' )
@@ -439,18 +447,29 @@ def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:]
     pixs.sort()
     pixs = np.array(pixs)
 
+    ## define magnetic field renormalization function for each model
+    f_renorm = [ np.genfromtxt( relation_file % m, names=True ) for m in models ]
+    def renorm( i, rho ):
+        f_rho = f_renorm[i]['density']
+        ix = np.array( [ bisect.bisect_left( f_renorm[i]['density'], rhoi ) for rhoi in rho ] )
+#        ix = np.array( [ np.where( f_renorm[i]['density'] >= rhoi )[0][0] for rhoi in rho ] )
+        return f_renorm[i]['Renorm'][ix]
+
+
     ## CreateLoSObservables does the actual job, use as pickleable function, feed it with the required keywords
-    f = partial( CreateLoSObservables, remove=remove, models=models, redshift_snapshots=redshift_snapshots, plot=plot )
+    f = partial( CreateLoSObservables, remove=remove, models=models, redshift_snapshots=redshift_snapshots, plot=plot )#, renorm=renorm )
 
     ## loop through bunches of ray indices
     for i in range(0, len(pixs), bunch ):
         ipixs = np.arange( i, min([i+bunch,len(pixs)]) )
         ## compute their LoS observables in parallel
         pool = multiprocessing.Pool( N_workers )
-#        LoS_observables = pool.map( f , pixs[ipixs] )
-        LoS_observables = map( f , pixs[ipixs] )  ## to check when parallel fails
+        LoS_observables = pool.map( f , pixs[ipixs] )
+#        LoS_observables = map( f , pixs[ipixs] )  ## to check when parallel fails
+#        print 'different?', LoS_observables[0,0]
         pool.close()
         pool.join()
+#        print len(ipixs) , '=' , LoS_observables.shape
         ## and write the results to LoS_observables_file, for all rays and considered models
         for ipix, LoS in zip( pixs[ipixs], LoS_observables ):
             for im, m in enumerate( models ):
@@ -464,7 +483,8 @@ def CollectLoSObservables( observables, key, measures=['DM', 'SM', 'RM'] ):
               observables, 
               [ 
                   '/'.join( 
-                      [ key, v + '_overestimate'*overestimate_SM ] 
+                      [ key, v ] 
+#                      [ key, v + '_overestimate'*overestimate_SM ] 
                   ) for v in measures
               ] 
     )

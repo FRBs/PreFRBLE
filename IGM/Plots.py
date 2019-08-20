@@ -14,6 +14,7 @@ from pylab import cm
 def PlotLikelihood( z, measure='DM', typ='near', model=model, nside=nside, density=True, absolute=False, color=None ):
     ## plot likelihood function at redshift z
     P, x = GetLikelihood( z, model=model, typ=typ, nside=nside, measure=measure, absolute=absolute )
+    print 'likelihood renormalization check 1 =', np.sum( P *  np.diff(x) )
     if density:
         ## plot the probability of each bin, i. e. P * dx
         P *= np.diff(x)
@@ -23,7 +24,6 @@ def PlotLikelihood( z, measure='DM', typ='near', model=model, nside=nside, densi
     else:
         label='z=%.4f' % z
     plt.plot( x[:-1] + np.diff(x) / 2, P, label=label, color=color )
-    print sum( P * ( x[:-1] + np.diff(x) / 2 ) )
 
 ### !!! not needed, double ??? (notebook)
 def PlotLikelihoods( measure='DM', model=model, typ='near', nside=nside, plot_every=1, absolute=False ):

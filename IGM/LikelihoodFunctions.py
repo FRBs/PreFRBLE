@@ -56,6 +56,7 @@ def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=mo
 ##                if i_ray > i_ray_max:
 ##                    break
                 key = '/'.join( [ model, 'chopped',  str(i_ray), measure] )
+                ## read LoS observables for current ray
                 rays.append( f[key].value )
                 n_rays += 1 
                 i_ray += 1     ##
@@ -79,7 +80,7 @@ def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=mo
     x = 10.**np.linspace( *np.log10(x_range), num=nbins+1 )
 
     dx = np.diff(x)
-    print 'check', [ np.sum( histograms*dx, axis=1 ) ]
+    print 'produced likelihood renormalization check', [ np.sum( histograms*dx, axis=1 ) ]
     
     ## write to file
     for i_z, z in enumerate( redshift_skymaps[1:] ):
