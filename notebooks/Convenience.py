@@ -1,6 +1,6 @@
 import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt
 
-units = {OA
+units = {
     'DM'       :r"pc cm$^{-3}$",
     'RM'       :r"rad m$^{-2}$",
     'SM'       :r"kpc m$^{-20/3}$",
@@ -8,16 +8,20 @@ units = {OA
     'redshift' :r"1+z",
 }
 
-root = '/PreFRBLE'
+root = '/work/stuf315/PreFRBLE/results/'
+root = '/hummel/PreFRBLE/results/'
 
 likelihood_file = root+'observables_likelihood.h5'
 sky_file = root+'observables_maps_galaxy.h5'
 
 likelihood_file_progenitor = root+'observables_likelihood_progenitor.h5'
 likelihood_file_galaxy = root+'observables_likelihood_galaxy.h5'
+likelihood_file_progenitor = root+'DMRMprobability_progenitor.h5'
+likelihood_file_galaxy = root+'DMRMprobability_galaxy.h5'
 likelihood_file_IGM = root+'observables_likelihood_IGM.h5'
 
 likelihood_file_Full = root+'observables_likelihood_Full.h5'
+likelihood_file_Full = root+'DMRMprobability_Full.h5'
 
 
 def KeyProgenitor( model, measure='DM', axis='P' ):
@@ -29,8 +33,8 @@ def KeyMilkyWay( model, measure='DM'  ):
 def KeyHost( model, weight, measure='DM' ):
     return '/'.join( [ 'Host', model, weight, measure ] )
 
-def KeyIGM( z, model, measure, nside, measure, axis ):
-    return '/'.join( [ model, measure, str(nside), measure, '%.4f' % z, axis] )
+def KeyIGM( z, model, measure, nside, value, axis ):
+    return '/'.join( [ model, measure, str(nside), value, '%.4f' % z, axis] )
 
 def KeyFull( measure='DM', z=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Progenitor=['Piro18/uniform_JF12'] ):
     models = np.append( model_MW, model_IGM )
