@@ -45,7 +45,8 @@ pool.join()
 
 
 ## combine segments to full LoS and reduce raw data to LoS observables, results saved to LoS_observables_file
-CreateLoSsObservables( models=models, remove=False )
+#CreateLoSsObservables( models=models, remove=True )
+#CreateLoSsObservables( models=models, remove=False )
 
 ### repeat the steps above until you reach a decent amount of LoS reduced to observables in LoS_observables_file
 ### then continue with the functions below to obtain the likelihood function
@@ -55,14 +56,14 @@ CreateLoSsObservables( models=models, remove=False )
 ## compute the likelihood function as probability density of observables from LoS and write to probability_file_IGM
 ## compute likelihood functions of DM and |RM|, only the latter differ between magnetic field models
 bunch = 128  ## bunch size for internal computation, too big crashes memory
-P = MakeFarLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
-PlotLikelihoods( measure='DM', model='primordial', typ='far' )
-P = MakeFarLikelihoodFunction( bins, SM_range, measure='SM', absolute=False, bunch=bunch, model='primordial' )
-PlotLikelihoods( measure='SM', model='primordial', typ='far', plot_every=10 )
+#P = MakeFarLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
+PlotLikelihoods( measure='DM', model='primordial', typ='far', plot_every=1 )
+#P = MakeFarLikelihoodFunction( bins, SM_range, measure='SM', absolute=False, bunch=bunch, model='primordial' )
+PlotLikelihoods( measure='SM', model='primordial', typ='far', plot_every=1 )
 for model in models:
     print model
-    P = MakeFarLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
-    PlotLikelihoods( measure='RM', model=model, typ='far', absolute=True )
+#    P = MakeFarLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
+    PlotLikelihoods( measure='RM', model=model, typ='far', absolute=True, plot_every=1 )
 print "This took %.0f seconds" % (time()-t0)
 
 

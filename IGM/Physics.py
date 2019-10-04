@@ -12,8 +12,8 @@ from yt.units import speed_of_light_cgs as speed_of_light
 units = {
     'DM'       :r"pc cm$^{-3}$",
     'RM'       :r"rad m$^{-2}$",
-#    'SM'       :r"kpc m$^{-20/3}$",
-    'SM'       :r"10$^{12}$ m$^{-17/3}$",
+    'SM'       :r"kpc m$^{-20/3}$",
+#    'SM'       :r"10$^{12}$ m$^{-17/3}$",
 }
 
 
@@ -148,3 +148,5 @@ def ScatteringMeasure_ZHU( density=None, redshift=None, dredshift=None, outer_sc
         z = redshift
         dz = dredshift
     return 1.31e13 / hubble_constant * (omega_baryon/0.049)**2 * outer_scale**(-2./3) * ( density/gas_density )**2 * (1+z)**3 / np.sqrt( omega_lambda + omega_matter*(1+z)**3 ) * dz  /kpc2cm*100
+
+ScatteringMeasure = ScatteringMeasure_ZHU

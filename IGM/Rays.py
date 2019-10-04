@@ -392,8 +392,8 @@ def CreateLoSObservables( ipix, remove=True, redshift_snapshots=redshift_snapsho
         ### compute RM for other models
         RMs = []
         for im, m in enumerate( models ):
-            ## since RM propto B_LoS, apply B(rho) renormalization factor
-            RMs.append( RM * renorm( im, data['Density'] / ( critical_density*omega_baryon*(1+data['redshift'])**3 ) ) ) ## density in terms of average (baryonic) density
+            ## since RM propto B_LoS, apply B(rho) renormalization factor, rho in terms of average (baryon) gas density at given redshift
+            RMs.append( RM * renorm( im, data['Density'] / ( critical_density*omega_baryon*(1+data['redshift'])**3 ) ) ) 
             
         if plot:
             plt.plot( data['redshift'], data['Density'], color='black' )
@@ -465,15 +465,13 @@ def CreateLoSsObservables( remove=True, redshift_snapshots=redshift_snapshots[:]
         ## compute their LoS observables in parallel
         pool = multiprocessing.Pool( N_workers )
         LoS_observables = pool.map( f , pixs[ipixs] )
-#        LoS_observables = map( f , pixs[ipixs] )  ## to check when parallel fails
-#        print 'different?', LoS_observables[0,0]
+#        LoS_observables = map( f , pixs[ipixs] )  ## !!! use to check when parallel fails
         pool.close()
         pool.join()
-#        print len(ipixs) , '=' , LoS_observables.shape
         ## and write the results to LoS_observables_file, for all rays and considered models
         for ipix, LoS in zip( pixs[ipixs], LoS_observables ):
             for im, m in enumerate( models ):
-                CollectLoSObservables( LoS[np.array([0,1,1+im])], '/'.join( [ m, 'chopped',  str(ipix)] ), measures=['DM','SM','RM'] )
+                CollectLoSObservables( LoS[np.array([0,1,2+im])], '/'.join( [ m, 'chopped',  str(ipix)] ), measures=['DM','SM','RM'] )
 
 
 

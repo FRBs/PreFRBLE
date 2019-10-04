@@ -120,13 +120,13 @@ def PlotNearRays( measure='DM', nside=nside, model=model ):
 
 import yt
 
-def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, save_mean=True, uniform=False, plot_single_rays=False, overestimate_SM=False ):
+def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_stddev=True, save_mean=True, uniform=False, plot_single_rays=False, overestimate_SM=False ):
     Ms = []
     with h5.File( LoS_observables_file ) as f:
         for i in f['%s/chopped/' % model].keys():
-            M = f['%s/chopped/%s/%s' % ( model, i, measure + 'overestimate'*overstimate_SM ) ].value
+            M = f['%s/chopped/%s/%s' % ( model, i, measure + 'overestimate'*overestimate_SM ) ].value
             if measure == 'SM':
-                M *= kpc2cm/100   * 1e-12
+                M *= kpc2cm/100   * 1e-12  ## to match units in Zhu et al. !!! remove
             Ms.append( M )
             if plot_single_rays:
                 plt.plot( np.arange(0.1,6.1,0.1) , M )
@@ -140,13 +140,16 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, save_me
         plt.savefig( root_rays + "%s_redshift_%s.png" % ( measure, model ) )
         plt.close()
 
-    if mean: 
+    if plot_mean: 
         zs = np.arange(0.0,6.1,0.1)
+        if measure == 'RM':
+            Ms = np.abs(Ms)
 ##        Ms = np.cumsum( Ms, axis=1 )  #### !!!! double cumsum?? results are written as cumsum
 #        plt.errorbar( np.arange(0.1,6.1,0.1) , np.mean(Ms, axis=0), np.std(Ms, axis=0 ) )
         Ms_mean, Ms_std = np.mean(Ms, axis=0), np.std(Ms, axis=0 )
-        plt.plot( zs[1:] , Ms_mean, label='mean' + ' overestimate'*overestimate_SM, linewidth=2 )
-        plt.plot( zs[1:] , Ms_mean + Ms_std, linestyle=':', label='stddev' )
+        plt.plot( zs[1:] , Ms_mean, label='mean ' + 'overestimate '*overestimate_SM +model, linewidth=2 )
+        if plot_stddev:
+            plt.plot( zs[1:] , Ms_mean + Ms_std, linestyle=':', label='stddev' )
         if uniform:
             ## print prediction for homogeneous ICM
             zs = np.arange(0.0,6.1,0.01)  ## 0.01 leads to 3% accuracy of results
@@ -157,16 +160,19 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, save_me
                 SM_uniform *= kpc2cm/100*1e-12
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='--', label='diffuse dl' )
                 '''
+                ## uniform prediction for cosmology parameters used in Hackstein et al. 2019
                 SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=1., redshift=zs )
-                SM_uniform *= kpc2cm/100*1e-12
+                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='-.', label='diffuse' )
 
+                ## mimic results of Zhu et al. 
                 SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=1., redshift=zs, omega_matter=0.317, omega_lambda=0.683, omega_baryon=0.049, hubble_constant=0.671 )
-                SM_uniform *= kpc2cm/100*1e-12
+                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='-.', label='diffuse, Zhu+18' )
 
+                ## mimic results of Macquart & Koay 2013 
                 SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=1., redshift=zs, omega_matter=0.3, omega_lambda=0.7, omega_baryon=0.04, hubble_constant=0.71 )
-                SM_uniform *= kpc2cm/100*1e-12
+                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='-.', label='diffuse, MK13' )
 
             plt.legend()
