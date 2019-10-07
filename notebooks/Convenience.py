@@ -10,6 +10,7 @@ units = {
 
 root = '/work/stuf315/PreFRBLE/results/'
 root = '/hummel/PreFRBLE/results/'
+#root = '/media/hqi/6A57-6B65/PreFRBLE/results/'
 
 likelihood_file = root+'observables_likelihood.h5'
 sky_file = root+'observables_maps_galaxy.h5'
@@ -19,6 +20,7 @@ likelihood_file_galaxy = root+'observables_likelihood_galaxy.h5'
 likelihood_file_progenitor = root+'DMRMprobability_progenitor.h5'
 likelihood_file_galaxy = root+'DMRMprobability_galaxy.h5'
 likelihood_file_IGM = root+'observables_likelihood_IGM.h5'
+likelihood_file_redshift = root+'redshift_likelihood.h5'
 
 likelihood_file_Full = root+'observables_likelihood_Full.h5'
 likelihood_file_Full = root+'DMRMprobability_Full.h5'
@@ -36,6 +38,9 @@ def KeyHost( model, weight, measure='DM' ):
 def KeyIGM( z, model, measure, nside, value, axis ):
     return '/'.join( [ model, measure, str(nside), value, '%.4f' % z, axis] )
 
+def KeyRedshift( model, telescope, axis ):
+    return '/'.join( [ model, telescope, axis] )
+
 def KeyFull( measure='DM', z=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Progenitor=['Piro18/uniform_JF12'] ):
     models = np.append( model_MW, model_IGM )
     models = np.append( models, model_Host )
@@ -46,16 +51,17 @@ def KeyFull( measure='DM', z=0.1, model_MW=['JF12'], model_IGM=['primordial'], m
 
 
 
-def Write2h5( filename, datas, keys ):                                          
-    if type(keys) is str:                                                       
-        sys.exit( 'Write2h5 needs list of datas and keys' )                     
-    with h5.File( filename, 'a' ) as f:                                         
-        for data, key in zip( datas, keys ):                                    
-            try:                                                                
-                f.__delitem__( key )                                            
-            except:                                                             
-                pass                                                            
+def Write2h5( filename, datas, keys ):
+    if type(keys) is str:
+        sys.exit( 'Write2h5 needs list of datas and keys' )
+    with h5.File( filename, 'a' ) as f:
+        for data, key in zip( datas, keys ):
+            try:
+                f.__delitem__( key )
+            except:
+                pass
             f.create_dataset( key, data=data  )
+
 
 def GetLikelihood_IGM( z=0., model='primordial', distance='far', nside=64, measure='DM', absolute=True ):
     if z < 0.1:
@@ -65,6 +71,14 @@ def GetLikelihood_IGM( z=0., model='primordial', distance='far', nside=64, measu
     with h5.File( likelihood_file_IGM ) as f:
         P = f[ KeyIGM( z, model, distance, nside, '|%s|' % measure if absolute else measure, 'P' ) ].value
         x = f[ KeyIGM( z, model, distance, nside, '|%s|' % measure if absolute else measure, 'x' ) ].value
+    return P, x
+
+
+
+def GetLikelihood_Redshift( model='sfr', telescope='None' ):
+    with h5.File( likelihood_file_redshift ) as f:
+        P = f[ KeyRedshift( model, telescope, 'P' ) ].value
+        x = f[ KeyRedshift( model, telescope, 'x' ) ].value
     return P, x
 
 def GetLikelihood_Host( z=0., model='JF12', weight='uniform', measure='DM' ):
