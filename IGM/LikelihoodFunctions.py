@@ -92,5 +92,7 @@ def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=mo
 def GetLikelihood( z, model=model, typ='near', nside=nside, measure='DM', absolute=False ):
     ## read likelihood function from likelihood_file_IGM
     keys = [ KeyLikelihood_IGM( z, model, typ, nside, '|%s|' % measure if absolute else measure, which ) for which in [ 'P', 'x' ] ]
+
+    print keys
     return tuple([ h5.File( likelihood_file_IGM )[key].value for key in keys ])
 

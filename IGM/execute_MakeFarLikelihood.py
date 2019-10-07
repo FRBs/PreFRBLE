@@ -16,6 +16,9 @@ models=['primordial', 'astrophysical']  ## models to be considered for the magne
 
 models = ['primordial', 'B9b', 'B9.5b', 'B10.0b', 'B10.5b', 'B11b', 'B13b', 'B15b', 'B17b' ]
 
+models=['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd', 'alpha10-3rd', 'alpha11-3rd', 'alpha12-3rd',]  ## models to be considered for the magnetic field, provided as B~rho relations in relations_file
+
+
 ## parameters for the likelihood fuction
 bins = 100  ## number of bins for the likelihood functions
 DM_range = [ 1e1, 1e4 ]  ## range for the likelihood function of DM
@@ -37,12 +40,13 @@ span=span_tot/N_workers ##  size of bunch to be computed by single process
 r = [ range(i+off, i+span+off) for i in range(0,span_tot,span) ]  ## bunches of LoS indices to be produced by the individual process
 
 ## extract raw data along segments that form LoS
+'''
 pool = Pool(N_workers)
 #pool.map( CreateLoSSegments, r  )
 #map( CreateLoSSegments, r  )
 pool.close()
 pool.join()
-
+'''
 
 ## combine segments to full LoS and reduce raw data to LoS observables, results saved to LoS_observables_file
 #CreateLoSsObservables( models=models, remove=True )
@@ -56,15 +60,22 @@ pool.join()
 ## compute the likelihood function as probability density of observables from LoS and write to probability_file_IGM
 ## compute likelihood functions of DM and |RM|, only the latter differ between magnetic field models
 bunch = 128  ## bunch size for internal computation, too big crashes memory
-#P = MakeFarLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
+#'''
+P = MakeFarLikelihoodFunction( bins, DM_range, measure='DM', absolute=False, bunch=bunch, model='primordial' )
 PlotLikelihoods( measure='DM', model='primordial', typ='far', plot_every=1 )
-#P = MakeFarLikelihoodFunction( bins, SM_range, measure='SM', absolute=False, bunch=bunch, model='primordial' )
+P = MakeFarLikelihoodFunction( bins, SM_range, measure='SM', absolute=False, bunch=bunch, model='primordial' )
 PlotLikelihoods( measure='SM', model='primordial', typ='far', plot_every=1 )
 for model in models:
-    print model
-#    P = MakeFarLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
+    P = MakeFarLikelihoodFunction( bins, RM_range, measure='RM', absolute=True, bunch=bunch, model=model )
     PlotLikelihoods( measure='RM', model=model, typ='far', absolute=True, plot_every=1 )
 print "This took %.0f seconds" % (time()-t0)
+#'''
 
+'''
+from Plots import PlotLikelihood
+for model in models:
+    PlotLikelihood( z=6.0, measure='RM', model=model, typ='far', absolute=True )
+PlotLikelihoods( measure='RM', model=model, typ='far', absolute=True, plot_every=60 )
+#'''
 
 

@@ -120,7 +120,7 @@ def PlotNearRays( measure='DM', nside=nside, model=model ):
 
 import yt
 
-def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_stddev=True, save_mean=True, uniform=False, plot_single_rays=False, overestimate_SM=False ):
+def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_stddev=True, save_mean=True, uniform=False, plot_single_rays=False, overestimate_SM=False, z_max=2, **kwargs ):
     Ms = []
     with h5.File( LoS_observables_file ) as f:
         for i in f['%s/chopped/' % model].keys():
@@ -129,7 +129,7 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_st
                 M *= kpc2cm/100   * 1e-12  ## to match units in Zhu et al. !!! remove
             Ms.append( M )
             if plot_single_rays:
-                plt.plot( np.arange(0.1,6.1,0.1) , M )
+                plt.plot( np.arange(0.1,6.1,0.1) , M, **kwargs )
     if plot_single_rays:
         plt.yscale('log')
         if measure == 'SM':
@@ -147,7 +147,7 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_st
 ##        Ms = np.cumsum( Ms, axis=1 )  #### !!!! double cumsum?? results are written as cumsum
 #        plt.errorbar( np.arange(0.1,6.1,0.1) , np.mean(Ms, axis=0), np.std(Ms, axis=0 ) )
         Ms_mean, Ms_std = np.mean(Ms, axis=0), np.std(Ms, axis=0 )
-        plt.plot( zs[1:] , Ms_mean, label='mean ' + 'overestimate '*overestimate_SM +model, linewidth=2 )
+        plt.plot( zs[1:] , Ms_mean, label='mean ' + 'overestimate '*overestimate_SM +model, linewidth=2, **kwargs )
         if plot_stddev:
             plt.plot( zs[1:] , Ms_mean + Ms_std, linestyle=':', label='stddev' )
         if uniform:
@@ -183,7 +183,7 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_st
         if measure == 'SM':
             plt.ylim(2e12,2e17)
             plt.ylim(2e0,2e5)
-        plt.xlim(0,2)
+        plt.xlim(0,z_max)
 #            plt.ylim(2e10,2e17)
         if save_mean:
             plt.savefig( root_rays + "%s_mean_redshift_%s.png" % ( measure, model ) )
