@@ -35,11 +35,14 @@ def KeyMilkyWay( model, measure='DM'  ):
 def KeyHost( model, weight, measure='DM' ):
     return '/'.join( [ 'Host', model, weight, measure ] )
 
+def KeyInter( z, model, measure='DM' ):
+    return '/'.join( [ 'Intervening', model, '%.4f' % z, measure ] )
+
 def KeyIGM( z, model, measure, nside, value, axis ):
     return '/'.join( [ model, measure, str(nside), value, '%.4f' % z, axis] )
 
-def KeyRedshift( model, telescope, axis ):
-    return '/'.join( [ model, telescope, axis] )
+def KeyRedshift( population, telescope, axis ):
+    return '/'.join( [ population, telescope, axis] )
 
 def KeyFull( measure='DM', z=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Progenitor=['Piro18/uniform_JF12'] ):
     models = np.append( model_MW, model_IGM )
@@ -75,16 +78,22 @@ def GetLikelihood_IGM( z=0., model='primordial', distance='far', nside=64, measu
 
 
 
-def GetLikelihood_Redshift( model='sfr', telescope='None' ):
+def GetLikelihood_Redshift( population='sfr', telescope='None' ):
     with h5.File( likelihood_file_redshift ) as f:
-        P = f[ KeyRedshift( model, telescope, 'P' ) ].value
-        x = f[ KeyRedshift( model, telescope, 'x' ) ].value
+        P = f[ KeyRedshift( population, telescope, 'P' ) ].value
+        x = f[ KeyRedshift( population, telescope, 'x' ) ].value
     return P, x
 
 def GetLikelihood_Host( z=0., model='JF12', weight='uniform', measure='DM' ):
     with h5.File( likelihood_file_galaxy ) as f:
         P = f[ KeyHost( model, weight, measure+'/P' ) ].value * (1+z)**( 1 + (measure=='RM') )
         x = f[ KeyHost( model, weight, measure+'/x' ) ].value / (1+z)**( 1 + (measure=='RM') )
+    return P, x
+
+def GetLikelihood_Inter( z=0., model='Rodrigues18', measure='DM' ):
+    with h5.File( likelihood_file_galaxy ) as f:
+        P = f[ KeyInter( z, model, measure+'/P' ) ].value
+        x = f[ KeyInter( z, model, measure+'/x' ) ].value
     return P, x
 
 def GetLikelihood_Progenitor( z=0., model='Piro18/uniform', measure='DM' ):
@@ -100,12 +109,6 @@ def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
     return P, x
 
 
-def GetLikelihood_Full( z=0.1, measure='DM', **models ):
-    with h5.File( likelihood_file_Full ) as f:
-        P = f[ KeyFull( measure+'/P', z=z, **models ) ].value
-        x = f[ KeyFull( measure+'/x', z=z, **models ) ].value
-    return P, x
-
 get_likelihood = {
     'IGM'  :       GetLikelihood_IGM,
     'Host' :       GetLikelihood_Host,
@@ -113,14 +116,23 @@ get_likelihood = {
     'MilkyWay'   : GetLikelihood_MilkyWay  
 }
 
+def GetLikelihood_Full( z=0.1, measure='DM', **models ):
+    with h5.File( likelihood_file_Full ) as f:
+        P = f[ KeyFull( measure+'/P', z=z, **models ) ].value
+        x = f[ KeyFull( measure+'/x', z=z, **models ) ].value
+    return P, x
+
+
+
 def GetLikelihood( contributor, model, density=True, **kwargs ):
+    ## wrapper to read any likelihood function written to file
     P, x = get_likelihood[contributor]( model=model, **kwargs )
     if not density:
         P *= np.diff(x)
     return P, x
 
-
 def histogram( data, bins=10, range=None, density=None, log=False ):
+    ## wrapper for np.histogram that allows for log-scaled probablity density histograms
     if log:
         if range is not None:
             range = np.log10(range)
@@ -154,6 +166,41 @@ def PlotLikelihood( x, P, density=False, cumulative=False, log=True, ax=None, me
         ax.set_ylabel( ( r"P(%s)" % measure_ ) + ( ( r"$\cdot$%s" % measure_ ) if density else ( r"$\Delta$%s" % measure_ ) ), fontdict={'size':18 } )
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
+
+
+
+
+## mathematical likelihood operations
+
+def Likelihoods( measurements, P, x, minimial_likelihood=1e-9 ):
+    ## returns likelihoods for given measurements according to likelihood function given by P and x
+    ## minimal_likelihood is returned for values outside the range of x
+
+    Ps = np.zeros( len( measurements ) ) ## collector for probabilities of measurements
+    dx = np.diff(x)
+    isort = np.argsort( measurements )   ## sorted order of measurements
+    i = 0  ## marker for current bin
+    ## for each measurement (in ascending order)
+    for m, i_s in zip( np.array(measurements)[isort], isort ):
+    ##   check bins >= previous results
+        for xi in x[i:]:
+    ##      whether measure is inside
+            if m >= xi:  ## measure is bigger than current bin range
+                ##   set marker and continue with next bin
+                i += 1   
+                continue
+            else:        ## otherwise, measure is in the bin
+                ## put result in correct place and stop checking bins
+                Ps[i_s] = P[i-1]  if i > 0 else minimal_likelihood  ## if that was the lowest bound, probability is ->zero if measurement is outside the range of P, i. e. P~0
+                break
+        else:
+            ## if measure is bigger than the last bin
+            Ps[i_s] = minimal_likelihood  ## probability is zero if measurement is outside the range of P, i. e. P~0
+    
+    return np.array( Ps )
+
+
+
 
 
 
@@ -195,11 +242,8 @@ def AddLikelihoods( fs, xs, log=True, shrink=False, weights=None ):
     ##     restrict range to within target bin
                 x_[0], x_[-1] = b0, b1
     ##     add average to target likelihood
-#                P[ib] += np.sum( f[ix]*np.diff(x_) ) / (b1-b0)
                 P[ib] += w * np.sum( f[ix]*np.diff(x_) ) / (b1-b0)
     ## renormalize to 1
-#    P /= len(fs)
-#    P /= np.sum(weights)
     P /= np.sum( P*np.diff(x) )
 #    print 'check 1=%f' % np.sum( P * np.diff(x) )
     return P, x
