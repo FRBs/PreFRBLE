@@ -1,4 +1,6 @@
 import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt
+from matplotlib.cm import rainbow
+from matplotlib import colors, cm
 
 units = {
     'DM'       :r"pc cm$^{-3}$",
@@ -29,14 +31,14 @@ likelihood_file_Full = root+'DMRMprobability_Full.h5'
 def KeyProgenitor( model, measure='DM', axis='P' ):
     return '/'.join( [ model, measure, axis ] )
 
-def KeyMilkyWay( model, measure='DM'  ):
-    return '/'.join( [ 'MilkyWay', model, measure ] )
+def KeyMilkyWay( model, measure='DM', axis='P'  ):
+    return '/'.join( [ 'MilkyWay', model, measure, axis ] )
 
-def KeyHost( model, weight, measure='DM' ):
-    return '/'.join( [ 'Host', model, weight, measure ] )
+def KeyHost( z, model, weight, measure='DM', axis='P' ):
+    return '/'.join( [ 'Host', model, weight, '%.4f' % z, measure, axis ] )
 
-def KeyInter( z, model, measure='DM' ):
-    return '/'.join( [ 'Intervening', model, '%.4f' % z, measure ] )
+def KeyInter( z, model, measure='DM', axis='P' ):
+    return '/'.join( [ 'Intervening', model, '%.4f' % z, measure, axis ] )
 
 def KeyIGM( z, model, measure, nside, value, axis ):
     return '/'.join( [ model, measure, str(nside), value, '%.4f' % z, axis] )
@@ -147,6 +149,9 @@ def histogram( data, bins=10, range=None, density=None, log=False ):
         h, x = np.histogram( data, bins=bins, range=range, density=density )
     return h, x
 
+
+## Convenient Plots
+
 def PlotLikelihood( x, P, density=False, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
     if cumulative:
         density = False
@@ -167,6 +172,13 @@ def PlotLikelihood( x, P, density=False, cumulative=False, log=True, ax=None, me
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
+def Colorbar( x, label=None, labelsize=16, cmap=rainbow ):
+    ##  x: 1D array of data to be represented by rainbow colors
+    sm = plt.cm.ScalarMappable( cmap=cmap, norm=plt.Normalize(vmin=x.min(), vmax=x.max() ) )
+    sm._A = []
+    cb = plt.colorbar(sm )
+    cb.ax.tick_params( labelsize=labelsize )
+    cb.set_label(label=label, size=labelsize)
 
 
 
