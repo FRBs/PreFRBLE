@@ -57,7 +57,7 @@ proton_electron_mass_ratio = 1836.
 proton_mass = 1.67e-24 # g
 hubble_constant = 67.11 # H_0 in km / s / Mpc
 
-outer_scale_0_IGM = 1 # pc           ## global outer scale assumed to compute SM, choose other values by SM*L0**(-2/3)
+outer_scale_0_IGM = 1e6 # pc ## from Ryu+ 2008          ## global outer scale assumed to compute SM, choose other values by SM*L0**(-2/3)
 
 ## cosmic functions
 co = Cosmology( hubble_constant=h, omega_matter=omega_matter, omega_lambda=omega_lambda, omega_curvature=omega_curvature )

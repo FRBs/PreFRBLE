@@ -16,13 +16,13 @@ models=['primordial', 'astrophysical']  ## models to be considered for the magne
 
 models = ['primordial', 'B9b', 'B9.5b', 'B10.0b', 'B10.5b', 'B11b', 'B13b', 'B15b', 'B17b' ]
 
-models=['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd', 'alpha10-3rd', 'alpha11-3rd', 'alpha12-3rd',]  ## models to be considered for the magnetic field, provided as B~rho relations in relations_file
+models=['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd']  ## models to be considered for the magnetic field, provided as B~rho relations in relations_file
 
 
 ## parameters for the likelihood fuction
 bins = 100  ## number of bins for the likelihood functions
 DM_range = [ 1e1, 1e4 ]  ## range for the likelihood function of DM
-SM_range = [ 1e-8, 1e0 ]  ## range for the likelihood function of DM
+SM_range = [ 1e-12, 1e-5 ]  ## range for the likelihood function of DM
 RM_range = [ 1e-6, 1e3 ] ## range for the likelihood function of |RM|
 
 

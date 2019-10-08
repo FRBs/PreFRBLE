@@ -32,7 +32,7 @@ energy density spectrum).
 """
 
 
-def doit(model):
+def doit(model, max_level=1):
 
     # a FFT operates on uniformly gridded data.  We'll use the yt
     # covering grid for this.
@@ -43,12 +43,13 @@ def doit(model):
     #max_level = ds.index.max_level
     ### due to memory shortage, only use limited max_level < 5
     ### as we are only interested in outer scale, level 0 should suffice
-    max_level = 1
+    #max_level = 1
 
     # ref = int(np.product(ds.ref_factors[0:max_level]))
     ### depreciated, ds.ref_factors doesn't exist
     ref = max( 1, max_level * ds.refine_by )
-    #ref = 1
+    ### due to memory shortage, dont exceed
+    ref = 2
 
     ### instead on starting at [0,0,0], start at [1/4,1/4,1/4] relative sidelength
     low = ds.domain_right_edge / 4
@@ -99,7 +100,7 @@ def doit(model):
     kmax = k[index]
     Emax = E_spectrum[index]
 
-    np.savetxt( "/work/stuf315/PreFRBLE/results/spectrum_%s.txt" % model, np.array([E_spectrum,k]).T, header='Energy spectrum\tk')
+    np.savetxt( "/work/stuf315/PreFRBLE/results/spectrum_%s_level%i.txt" % (model, max_level), np.array([E_spectrum,k]).T, header='Energy spectrum\tk')
     
     plt.loglog( k, E_spectrum, label='z = %.2f' % ds.current_redshift )
     plt.loglog( k, Emax*(k/kmax)**(-5./3.), ls=":", color="0.5")
@@ -108,7 +109,7 @@ def doit(model):
     plt.ylabel(r"$E(k)dk$")
     plt.legend()
 
-    plt.savefig("/work/stuf315/PreFRBLE/results/spectrum_%s.png" % model)
+    plt.savefig("/work/stuf315/PreFRBLE/results/spectrum_%s_level%i.png" % (model, max_level) )
 
 def fft_comp(ds, irho, iu, nindex_rho, level, low, delta ):
 
@@ -135,5 +136,6 @@ def fft_comp(ds, irho, iu, nindex_rho, level, low, delta ):
 
 #ds = yt.load("/work/stuf315/MHD-models/clues/2018/primordial/RD0006/RD0006")
 #ds = yt.load("/hummel/enzo/gas_plus_dm_std/RD0011/RedshiftOutput0011")
-for model in ['RD00%02d' % i for i in [0,1,2,6,8,15,18,21]]:
-    doit(model)
+for model in ['RD00%02d' % i for i in [0,1,2,6,8,15,18,21]][-1:]:
+    for level in [2,3,4,5]:
+        doit(model, max_level=level)

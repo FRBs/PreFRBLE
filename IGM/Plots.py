@@ -125,8 +125,8 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_st
     with h5.File( LoS_observables_file ) as f:
         for i in f['%s/chopped/' % model].keys():
             M = f['%s/chopped/%s/%s' % ( model, i, measure + 'overestimate'*overestimate_SM ) ].value
-            if measure == 'SM':
-                M *= kpc2cm/100   * 1e-12  ## to match units in Zhu et al. !!! remove
+#            if measure == 'SM':
+#                M *= kpc2cm/100   * 1e-12  ## to match units in Zhu et al. !!! remove
             Ms.append( M )
             if plot_single_rays:
                 plt.plot( np.arange(0.1,6.1,0.1) , M, **kwargs )
@@ -161,18 +161,18 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_st
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='--', label='diffuse dl' )
                 '''
                 ## uniform prediction for cosmology parameters used in Hackstein et al. 2019
-                SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=1., redshift=zs )
-                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
+                SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=outer_scale_0_IGM, redshift=zs )
+#                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='-.', label='diffuse' )
 
                 ## mimic results of Zhu et al. 
-                SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=1., redshift=zs, omega_matter=0.317, omega_lambda=0.683, omega_baryon=0.049, hubble_constant=0.671 )
-                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
+                SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=outer_scale_0_IGM, redshift=zs, omega_matter=0.317, omega_lambda=0.683, omega_baryon=0.049, hubble_constant=0.671 )
+#                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='-.', label='diffuse, Zhu+18' )
 
                 ## mimic results of Macquart & Koay 2013 
-                SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=1., redshift=zs, omega_matter=0.3, omega_lambda=0.7, omega_baryon=0.04, hubble_constant=0.71 )
-                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
+                SM_uniform = ScatteringMeasure_ZHU( density=1, overdensity=True, outer_scale=outer_scale_0_IGM, redshift=zs, omega_matter=0.3, omega_lambda=0.7, omega_baryon=0.04, hubble_constant=0.71 )
+#                SM_uniform *= kpc2cm/100*1e-12  ## to match units in Zhu et al. !!! remove
                 plt.plot( zs[1:], np.cumsum(SM_uniform), linestyle='-.', label='diffuse, MK13' )
 
             plt.legend()
@@ -181,8 +181,9 @@ def PlotFarRays( measure='DM', nside=nside, model=model, plot_mean=True, plot_st
         plt.ylabel( '%s / (%s) ' % ( measure, units[measure] ) )
         plt.xlabel( 'redshift' )
         if measure == 'SM':
-            plt.ylim(2e12,2e17)
-            plt.ylim(2e0,2e5)
+            pass
+#            plt.ylim(2e12,2e17)
+#            plt.ylim(2e0,2e5)
         plt.xlim(0,z_max)
 #            plt.ylim(2e10,2e17)
         if save_mean:
