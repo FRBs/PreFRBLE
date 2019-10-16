@@ -1,16 +1,35 @@
-import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt
+import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt, yt
 from matplotlib.cm import rainbow
 from matplotlib import colors, cm
 
 
 RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes
+tau_min = 0.1 # ms      ## minimal RM measureable by telescopes
 
 units = {
     'DM'       :r"pc cm$^{-3}$",
     'RM'       :r"rad m$^{-2}$",
     'SM'       :r"kpc m$^{-20/3}$",
+    'tau'      :"ms",
     'z'        :r"z",
     'redshift' :r"1+z",
+}
+
+label = {
+    'DM'       : 'DM',
+    'RM'       : '|RM|',
+    'SM'       : 'SM',
+    'tau'      : r"$\tau$",
+    'z'        :r"z",
+    'redshift' :r"1+z",    
+}
+
+
+scale_factor_exponent = { ## used to redshift results of progenitor
+    'DM' : 1,
+    'RM' : 2,
+    'SM' : 2,
+    'tau': 3.4
 }
 
 
@@ -31,7 +50,59 @@ likelihood_file_IGM = root_likelihood+'observables_likelihood_IGM.h5'
 likelihood_file_redshift = root_likelihood+'redshift_likelihood.h5'
 
 likelihood_file_Full = root_likelihood+'observables_likelihood_Full.h5'
-#likelihood_file_Full = root_likelihood+'DMRMprobability_Full.h5'
+
+
+
+## physical constants                                                                                                          
+omega_baryon       = 0.048
+omega_CDM          = 0.259
+omega_matter       = 0.307
+omega_lambda       = 0.693
+omega_curvature    = 0.0
+hubble_constant    = 0.71
+ 
+## cosmic functions
+co = yt.utilities.cosmology.Cosmology( hubble_constant=hubble_constant, omega_matter=omega_matter, omega_lambda=omega_lambda, omega_curvature=omega_curvature )
+comoving_radial_distance = lambda z0, z1: co.comoving_radial_distance(z0,z1).in_units('Gpc').value
+
+## physics
+
+def AngularDiameterDistance(z_o, z_s):
+    if type(z_o) is not np.ndarray:
+        if type(z_s) is not np.ndarray:
+            return ( comoving_radial_distance(0,z_s) - comoving_radial_distance(0,z_o) )/(1+z_s)
+        else:
+            return np.array([ ( comoving_radial_distance(0,z) - comoving_radial_distance(0,z_o) )/(1+z) for z in z_s.flat])
+    else:
+        if type(z_s) is not np.ndarray:
+            return np.array([ ( comoving_radial_distance(0,z_s) - comoving_radial_distance(0,z) )/(1+z_s) for z in z_o.flat])         
+        else:
+            return np.array([ ( comoving_radial_distance(0,z2) - comoving_radial_distance(0,z1) )/(1+z2) for z1, z2 in zip( z_o.flat, z_s.flat )])
+
+def Deff( z_s=np.array(1.0), ## source redshift
+         z_L=np.array(0.5)   ## redshift of lensing material
+        ):
+    ### compute ratio of angular diameter distances of lense at redshift z_L for source at redshift z_s
+    D_L = AngularDiameterDistance( 0, z_L )
+    D_S = AngularDiameterDistance( 0, z_s )
+    D_LS = AngularDiameterDistance( z_L, z_s )   
+    return D_L * D_LS / D_S
+
+
+def ScatteringTime( SM=None,  ## effective SM in the observer frame, kpc m^-20/3
+                   redshift=0.0, ## at which SM is collected
+                   D_eff = 1., # Gpc
+                   lambda_0 = 0.23, # m, wavelength
+                  ):
+    ### computes scattering time in ms of FRB observed at wavelength lambda_0, Marcquart & Koay 2013 Eq.16b 
+    return 1.2e7 * lambda_0**4.4 / (1+redshift) * D_eff * SM**1.2
+    
+def Freq2Lamb( nu=1. ): # Hz 2 meters
+    return speed_of_light.in_units('m/s').value / nu
+
+def Lamb2Freq( l=1. ): # meters 2 Hz
+    return speed_of_light.in_units('m/s').value / l
+
 
 
 
@@ -116,8 +187,8 @@ def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
 
 def GetLikelihood_Progenitor( redshift=0., model='Piro18/uniform', measure='DM' ):
     with h5.File( likelihood_file_progenitor ) as f:
-        P = f[ KeyProgenitor( model=model, measure=measure, axis='P' ) ].value * (1+redshift)**( 2 - (measure=='DM') )
-        x = f[ KeyProgenitor( model=model, measure=measure, axis='x' ) ].value / (1+redshift)**( 2 - (measure=='DM') )
+        P = f[ KeyProgenitor( model=model, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyProgenitor( model=model, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
     return P, x
 
 def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
@@ -164,9 +235,11 @@ def PlotLikelihood( x, P, density=True, cumulative=False, log=True, ax=None, mea
     ax.plot( xx, PP, **kwargs)
 
     if measure is not None:
-        measure_ = measure if measure=='DM' else '|%s|' % measure
-        ax.set_xlabel( 'observed %s / %s' % ( measure_, units[measure] ), fontdict={'size':16 } )
-        ax.set_ylabel( ( r"P(%s)" % measure_ ) + ( ( r"$\cdot$%s" % measure_ ) if density else ( r"$\Delta$%s" % measure_ ) ), fontdict={'size':18 } )
+        ax.set_xlabel( 'observed %s / %s' % ( label[measure], units[measure] ), fontdict={'size':16 } )
+        ylabel = ( r"P(%s)" % label[measure] ) 
+        ylabel += ( r"$\times$%s" % label[measure] ) if density else ( r"$\Delta$%s" % label[measure] )
+        ax.set_ylabel( ylabel, fontdict={'size':18 } )
+#        ax.set_ylabel( ( r"P(%s)" % label[measure] ) + ( ( r"$\times$%s" % label[measure] ) if density else ( r"$\Delta$%s" % label[measure] ) ), fontdict={'size':18 } )
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
@@ -208,7 +281,7 @@ def coord2normal(x, lim, log=False):
         return ( x - lim[0] )/( lim[1] - lim[0] )
 
 
-def plot_limit( ax, x, y, label='', lower_limit=True, arrow_number=2, arrow_length=0.1, arrow_width=0.005, linewidth=4, shift_text_vertical=0, shift_text_horizontal=0 ):
+def PlotLimit( ax, x, y, label='', lower_limit=True, arrow_number=2, arrow_length=0.1, arrow_width=0.005, linewidth=4, shift_text_vertical=0, shift_text_horizontal=0 ):
     ### plot upper/lower limit 
     ###  ax: graph to plot limit on
     ###  x,y: one is list of two separate coordinates: define range of limit in one dimension, ons is list of identical coordinates: define limit and limited axis 
