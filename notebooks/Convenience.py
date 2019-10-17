@@ -714,7 +714,10 @@ def LikelihoodTelescope( measure='DM', telescope='parkes', population='smd', nsi
     ###  nside_IGM: pixelization of IGM full-sky maps
         
     ## prior on redshift is likelihood based on FRB population and telescope selection effects 
-    Pz, zs = GetLikelihood_Redshift( population=population, telescope=telescope )
+    if population == 'flat':
+        Pz = None
+    else:
+        Pz, zs = GetLikelihood_Redshift( population=population, telescope=telescope )
     
     ## possible solutions for all redshifts are summed, weighed by the prior
     Ps, xs = [], []
@@ -795,13 +798,15 @@ def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior_BO=1., pop
     result = np.zeros( len(DMs) )
     
     ## estimate likelihood of source redshift based on DM and tau
-    P_redshifts_DMs, redshift_range = LikelihoodRedshift( DMs, scenario, taus=taus, population=population, telescope=telescope )
+    P_redshifts_DMs, redshift_range = LikelihoodRedshift( DMs=DMs, scenario=scenario, taus=taus, population=population, telescope=telescope )
     
     ## for each possible source redshift
     for redshift, P_redshift in zip( redshift_bins, P_redshifts_DMs.transpose() ):
         ## estimate likelihood of scenario based on RM, using the redshift likelihood as a prior
         ##  sum results of all possible redshifts
-        result += prior_BO * P_redshift * Likelihoods( RMs, *LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario) )
+        P, x = LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario )
+        result += prior_BO * P_redshift * Likelihoods( measurements=RMs, P=P, x=x )
+ 
     return result
 
 
@@ -813,7 +818,13 @@ def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, 
     ###  scenario1/2: dictionary of models combined to one scenario
     ###  population: assumed cosmic population of FRBs
     ###  telescope: in action to observe DMs, RMs and taus
-    return np.prod( LikelihoodCombined( DMs, RMs, scenario1, taus=taus ) / LikelihoodCombined( DMs, RMs, scenario2, taus=taus ) )
+    L1 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus )
+    L2 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus )
+    B = np.prod(L1/L2)
+    print L1
+    print L2
+    print B
+    return np.prod( LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus ) / LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus ) )
 
 
 def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True ):      ## mean works, std is slightly too high???
