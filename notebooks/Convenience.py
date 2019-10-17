@@ -1,10 +1,20 @@
-import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt, yt
+import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt, yt, csv
+from time import time
 from matplotlib.cm import rainbow
 from matplotlib import colors, cm
 
 
+regions = ['MW', 'IGM', 'Inter', 'Host', 'Progenitor']
+linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Progenitor':"-."}
+
+models_MW = ['JF12']
+models_IGM = ['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd']
+models_Host = ['Rodrigues18/smd', 'Rodrigues18/sfr']
+models_Inter = ['Rodrigues18/smd', 'Rodrigues18/sfr']
+models_Progenitor = ['Piro18/uniform/Rodrigues18/smd', 'Piro18/uniform/Rodrigues18/sfr', 'Piro18/wind', 'Piro18/wind+SNR']
+
+
 RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes
-tau_min = 0.1 # ms      ## minimal RM measureable by telescopes
 
 units = {
     'DM'       :r"pc cm$^{-3}$",
@@ -43,6 +53,7 @@ root_results = root + 'results/'
 
 likelihood_file = root_likelihood+'observables_likelihood.h5'
 sky_file = root_results+'observables_maps_galaxy.h5'
+frbcat_file = '../frbcat_20191016.csv'
 
 likelihood_file_progenitor = root_likelihood+'observables_likelihood_progenitor.h5'
 likelihood_file_galaxy = root_likelihood+'observables_likelihood_galaxy.h5'
@@ -50,6 +61,7 @@ likelihood_file_IGM = root_likelihood+'observables_likelihood_IGM.h5'
 likelihood_file_redshift = root_likelihood+'redshift_likelihood.h5'
 
 likelihood_file_Full = root_likelihood+'observables_likelihood_Full.h5'
+likelihood_file_telescope = root_likelihood+'observables_likelihood_telescope.h5'
 
 
 
@@ -61,13 +73,15 @@ omega_lambda       = 0.693
 omega_curvature    = 0.0
 hubble_constant    = 0.71
  
+from yt.units import speed_of_light_cgs as speed_of_light
+
 ## cosmic functions
 co = yt.utilities.cosmology.Cosmology( hubble_constant=hubble_constant, omega_matter=omega_matter, omega_lambda=omega_lambda, omega_curvature=omega_curvature )
 comoving_radial_distance = lambda z0, z1: co.comoving_radial_distance(z0,z1).in_units('Gpc').value
 
 ## physics
 
-def AngularDiameterDistance(z_o, z_s):
+def AngularDiameterDistance(z_o=0., z_s=1.):
     if type(z_o) is not np.ndarray:
         if type(z_s) is not np.ndarray:
             return ( comoving_radial_distance(0,z_s) - comoving_radial_distance(0,z_o) )/(1+z_s)
@@ -90,7 +104,7 @@ def Deff( z_s=np.array(1.0), ## source redshift
 
 
 def ScatteringTime( SM=None,  ## effective SM in the observer frame, kpc m^-20/3
-                   redshift=0.0, ## at which SM is collected
+                   redshift=0.0, ## of the scattering region, i. e. of effective lense distance
                    D_eff = 1., # Gpc
                    lambda_0 = 0.23, # m, wavelength
                   ):
@@ -103,6 +117,32 @@ def Freq2Lamb( nu=1. ): # Hz 2 meters
 def Lamb2Freq( l=1. ): # meters 2 Hz
     return speed_of_light.in_units('m/s').value / l
 
+HubbleParameter = lambda z: co.hubble_parameter(z).in_cgs()
+def HubbleDistance( z ):
+    return (speed_of_light / HubbleParameter(z)).in_units('Mpc').value
+
+def nInter( z_s=6.0,   ## source redshift
+            r=1., ## Mpc, radius of intervening galaxy
+            n=1 , ## Mpc^-3 number density of galaxies
+            comoving = False ## indicates whether n is comoving
+           ):
+    ### compute the average number of galaxies at redshift z that intersect the LoS, Macquart & Koay 2013 Eq. 33
+    z = redshift_bins[redshift_bins<=z_s]
+    dz = np.diff(redshift_range[redshift_range<=z_s*1.000001]) ## small factor required to find correct bin, don't know why it fails without...
+    if (type(n) is not np.ndarray) or comoving:
+        ## for comoving number density, consider cosmic expansion
+        n = n * (1+z)**3
+    return np.pi* r**2 * n * HubbleDistance(z) * dz / (1+z)
+
+def NInter( z_s=6.,   ## source redshift
+            r=1., ## radius of intervening galaxy
+            n=1 , ## number density of galaxies
+            comoving = False ## indicates whether n is comoving
+           ):
+    ### returns total intersection likelihood for source at all redshift bins up to z_s
+    return np.cumsum( nInter( z_s, r=r, n=n, comoving=comoving) )
+
+
 
 
 
@@ -110,11 +150,11 @@ def Lamb2Freq( l=1. ): # meters 2 Hz
 def KeyProgenitor( model='Piro18/wind', measure='DM', axis='P' ):
     return '/'.join( [ model, measure, axis ] )
 
-def KeyMilkyWay( model='JF12', measure='DM', axis='P'  ):
+def KeyMilkyWay( model='JF12', measure='DM', axis='P', redshift=0.0  ):
     return '/'.join( [ 'MilkyWay', model, measure, axis ] )
 
-def KeyHost( redshift=0.0, model='Rodrigues18', weight='smd', measure='DM', axis='P' ):
-    return '/'.join( [ 'Host', model, weight, '%.4f' % redshift, measure, axis ] )
+def KeyHost( redshift=0.0, model='Rodrigues18/smd', measure='DM', axis='P' ):
+    return '/'.join( [ 'Host', model, '%.4f' % redshift, measure, axis ] )
 
 def KeyInter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
     return '/'.join( [ 'Intervening', model, '%.4f' % redshift, measure, axis ] )
@@ -127,16 +167,35 @@ def KeyRedshift( population='flat', telescope='none', axis='P' ):
 
 #def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Progenitor=['Piro18/uniform_JF12'] ):
 def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
+    models = []
+    for region in regions:
+        model = scenario.get( region )
+        if model:
+            models = np.append( models, model )
+    models = np.append( models, [ redshift, measure, axis ] )
+    return '/'.join( models )
+
+''' old, long and ugly version
     models = np.append( scenario['model_MW'], scenario['model_IGM'] )
     models = np.append( models, scenario['model_Host'] )
     models = np.append( models, scenario['weight_Host'] )
     models = np.append( models, scenario['model_Progenitor'] )
     models = np.append( models, [redshift, measure,axis] )
     return '/'.join( models )
+'''
+
+def KeyTelescope( measure='DM', axis='P', telescope='parkes', population='smd', **scenario ):
+    models = [ telescope, population ]
+    for region in regions:
+        model = scenario.get( region )
+        if model:
+            models = np.append( models, model )
+    models = np.append( models, [ measure, axis ] )
+    return '/'.join( models )
 
 
 ## wrapper to write hdf5 files consistently
-def Write2h5( filename, datas, keys ):
+def Write2h5( filename='', datas=[], keys=[] ):
     if type(keys) is str:
         sys.exit( 'Write2h5 needs list of datas and keys' )
     with h5.File( filename, 'a' ) as f:
@@ -148,7 +207,7 @@ def Write2h5( filename, datas, keys ):
             f.create_dataset( key, data=data  )
 
 ## read likelihood function from file
-def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=64, measure='DM', absolute=True ):
+def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False ):
     if redshift < 0.1:
         typ='near'
     if measure == 'DM':
@@ -172,10 +231,10 @@ def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure
         x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**( 2 - (measure=='DM') )
     return P, x
 
-def GetLikelihood_Host( redshift=0., model='Rodrigues18', weight='smd', measure='DM' ):
+def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
     with h5.File( likelihood_file_galaxy ) as f:
-        P = f[ KeyHost( model=model, weight=weight, redshift=redshift, measure=measure, axis='P' ) ].value
-        x = f[ KeyHost( model=model, weight=weight, redshift=redshift, measure=measure, axis='x' ) ].value
+        P = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='P' ) ].value
+        x = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='x' ) ].value
     return P, x
 
 
@@ -203,25 +262,79 @@ get_likelihood = {
     'Inter' :      GetLikelihood_Inter,
     'Host' :       GetLikelihood_Host,
     'Progenitor' : GetLikelihood_Progenitor,
-    'MilkyWay'   : GetLikelihood_MilkyWay  
+    'MilkyWay'   : GetLikelihood_MilkyWay,  
+    'MW'         : GetLikelihood_MilkyWay  
 }
 
-def GetLikelihood( region, model, density=True, **kwargs ):
+def GetLikelihood( region='IGM', model='primordial', density=True, **kwargs ):
     ## wrapper to read any likelihood function written to file
+    if region == 'IGM' and kwargs['measure'] == 'RM':
+        kwargs['absolute'] = True
     P, x = get_likelihood[region]( model=model, **kwargs )
     if not density:
         P *= np.diff(x)
     return P, x
 
-def GetLikelihood_Full( redshift=0.1, measure='DM', **scenario ):
-    with h5.File( likelihood_file_Full ) as f:
-        P = f[ KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) ].value
-        x = f[ KeyFull( measure=measure, axis='x', redshift=redshift, **scenario ) ].value
-    return P, x
+def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
+    if not force:
+        try:
+            with h5.File( likelihood_file_Full ) as f:
+                P = f[ KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) ].value
+                x = f[ KeyFull( measure=measure, axis='x', redshift=redshift, **scenario ) ].value
+                return P, x
+        except:
+            pass
+    return LikelihoodFull( measure=measure, redshift=redshift, **scenario )
+
+def GetLikelihood_Telescope( telescope='parkes', population='smd', measure='DM', force=False, **scenario ):
+    if not force:
+        try:
+            with h5.File( likelihood_file_Full ) as f:
+                P = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', **scenario ) ].value
+                x = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='x', **scenario ) ].value
+            return P, x
+        except:
+            pass
+    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, **scenario )
+
+
+## Read FRBcat
+
+#FRB_dtype = [('ID','S'),('DM','f'),('DM_gal','f'), ('RM','f'),('tau','f'),('host_redshift','S'), ('tele','S')]
+FRB_dtype = [('ID','S9'),('DM','f'),('DM_gal','f'), ('RM','S10'),('tau','S10'),('host_redshift','S4'), ('tele','S10')]
+
+def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
+    ### read all FRBs from FRBcat
+    ###  optional: read only those FRBs observed by telescope with RM and tau
+    ###  print_number:True print number of extracted FRBs 
+    FRBs = []
+    with open( frbcat_file, 'rb') as f:
+        reader = csv.reader( f )
+        header = np.array(reader.next())
+        i_ID = 0
+        i_DM = np.where( header == 'rmp_dm' )[0][0]
+        i_DM_gal = np.where( header == 'rop_mw_dm_limit' )[0][0]
+        i_RM = np.where( header == 'rmp_rm' )[0][0]
+        i_tau = np.where( header == 'rmp_scattering' )[0][0]
+        i_zs = np.where( header == 'rmp_redshift_host' )[0][0]
+        i_tele = np.where( header == 'telescope' )[0][0]
+        i_s = [i_ID, i_DM, i_DM_gal, i_RM, i_tau, i_zs, i_tele]  ## order must fit order of FRB_dtype
+        for row in reader:
+            if telescope and ( row[i_tele] != telescope ) :
+                continue
+            if tau and ( row[i_tau] == 'null' ) :
+                continue
+            if RM and ( row[i_RM] == 'null' ) :
+                continue
+            FRBs.append( tuple( [ row[i].split('&')[0] for i in i_s ] ) )
+    if print_number:
+        print len(FRBs)
+    return np.array( FRBs, dtype=FRB_dtype )
+
 
 
 ## Convenient Plot functions
-def PlotLikelihood( x, P, density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
+def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
     if cumulative:
         density = False
     if ax is None:
@@ -243,7 +356,19 @@ def PlotLikelihood( x, P, density=True, cumulative=False, log=True, ax=None, mea
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
-def Colorbar( x, label=None, labelsize=16, cmap=rainbow ):
+def PlotContributions( measure='DM', redshift=0.1, **scenario ):
+    fig, ax = plt.subplots()
+    for region in regions:
+        models = scenario.get( region )
+        if models:
+            for model in models:
+                P, x = GetLikelihood( region=region, model=model, measure=measure, redshift=redshift )
+                PlotLikelihood( x, P, measure=measure, label=region+' '+labels[model] , linestyle=linestyle_region[region], ax=ax )
+    plt.legend()
+    plt.title( "redshift = %.1f" % redshift )
+    plt.tight_layout()
+
+def Colorbar( x=np.linspace(0,1,2), label=None, labelsize=16, cmap=rainbow ):
     ### plot colorbar at side of plot
     ###  x: 1D array of data to be represented by rainbow colors
     sm = plt.cm.ScalarMappable( cmap=cmap, norm=plt.Normalize(vmin=x.min(), vmax=x.max() ) )
@@ -253,9 +378,15 @@ def Colorbar( x, label=None, labelsize=16, cmap=rainbow ):
     if label is not None:
         cb.set_label(label=label, size=labelsize)
 
+def Rainbow( x=np.linspace(0,1,2) ):
+    ### return rainbow colors for 1D array x
+    x_ = x - x.min()
+    x_ /= x_.max()
+    return rainbow( x_ )
+
 
 import itertools
-def get_steps( N, x, log=False):
+def get_steps( N=2, x=np.array([1.,10.]), log=False):
     ''' calculate N equal (logarithmic) steps from x[0] to x[1] '''
     if log:
         xx = np.log10(x)
@@ -266,14 +397,14 @@ def get_steps( N, x, log=False):
         x_step = 10.**x_step
     return x_step
 
-def mean( x, log=False, **kwargs ):
+def mean( x=10.**np.arange(2), log=False, **kwargs ):
     ### wrapper to calulate the mean of log-scaled values
     if log:
         return 10.**np.mean( np.log10( x ), **kwargs )
     else:
         return np.mean( x, **kwargs )
 
-def coord2normal(x, lim, log=False):
+def coord2normal(x=10.**np.arange(2), lim=(1,10), log=False):
     ''' transforms coordinate x in (logarithmic) plot to normal coordinates (0,1) '''
     if log:
         return (np.log(x) - np.log(lim[0]))/(np.log(lim[1]) - np.log(lim[0]))
@@ -281,7 +412,7 @@ def coord2normal(x, lim, log=False):
         return ( x - lim[0] )/( lim[1] - lim[0] )
 
 
-def PlotLimit( ax, x, y, label='', lower_limit=True, arrow_number=2, arrow_length=0.1, arrow_width=0.005, linewidth=4, shift_text_vertical=0, shift_text_horizontal=0 ):
+def PlotLimit( ax=None, x=[1,1], y=[1,2], label='', lower_limit=True, arrow_number=2, arrow_length=0.1, arrow_width=0.005, linewidth=4, shift_text_vertical=0, shift_text_horizontal=0 ):
     ### plot upper/lower limit 
     ###  ax: graph to plot limit on
     ###  x,y: one is list of two separate coordinates: define range of limit in one dimension, ons is list of identical coordinates: define limit and limited axis 
@@ -309,7 +440,7 @@ def PlotLimit( ax, x, y, label='', lower_limit=True, arrow_number=2, arrow_lengt
 
 
 from labels import labels
-def LabelAddModel( label, model ):
+def LabelAddModel( label='', model='' ):
     ## adds model to label of scenario, i. e. set of combined models
     multi = len(model) > 1
     no = len(model) == 0
@@ -330,18 +461,25 @@ def LabelAddModel( label, model ):
 def LabelScenario( **scenario ):
     ## returns plotting label of scenario, i. e. set of combined models
     label = ''
+    for region in regions:
+        model = scenario.get( region )
+        if model:
+            label = LabelAddModel( label, model )
+    return label[:-6]
+
+''' old and ugly
     label = LabelAddModel( label, scenario['model_IGM'] )
     label = LabelAddModel( label, [ m for m in scenario['model_Host'] ] )
     label = LabelAddModel( label, scenario['model_Progenitor'] )
     label = LabelAddModel( label, scenario['model_MW'] )
     return label[:-6]
-
+'''
 
 
 
 ## mathematical likelihood operations
 
-def histogram( data, bins=10, range=None, density=None, log=False ):
+def histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False ):
     ## wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function
     if log:
         if range is not None:
@@ -359,7 +497,7 @@ def histogram( data, bins=10, range=None, density=None, log=False ):
 
 
 
-def Likelihoods( measurements, P, x, minimial_likelihood=1e-9 ):
+def Likelihoods( measurements=[], P=[], x=[], minimal_likelihood=1e-9 ):
     ## returns likelihoods for given measurements according to likelihood function given by P and x
     ## minimal_likelihood is returned for values outside the range of x
 
@@ -387,7 +525,7 @@ def Likelihoods( measurements, P, x, minimial_likelihood=1e-9 ):
     return np.array( Ps )
 
 
-def LikelihoodsAdd( fs, xs, log=True, shrink=False, weights=None, renormalize=1 ):
+def LikelihoodsAdd( fs=[], xs=[], log=True, shrink=False, weights=None, renormalize=False ):
     ### add together several likelihoos functions
     ###  fs: list of likelihood functions
     ###  xs: list of bin ranges of likelihood functions
@@ -398,7 +536,10 @@ def LikelihoodsAdd( fs, xs, log=True, shrink=False, weights=None, renormalize=1 
 
     if len(fs) == 1:
         ## if only one function is given, return the original
-        return fs[0], xs[0] 
+        P, x = fs[0], xs[0] 
+        if renormalize:
+            P *= renormalize/np.sum( P*np.diff(x) )
+        return P, x
 
     ## new function support
     l = len(fs[0])
@@ -438,13 +579,14 @@ def LikelihoodsAdd( fs, xs, log=True, shrink=False, weights=None, renormalize=1 
         P *= renormalize/np.sum( P*np.diff(x) )
     return P, x
 
-
-def LikelihoodShrink( P, x, bins=100, log=True ):
+def LikelihoodShrink( P=np.array(0), x=np.array(0), bins=100, log=True ):
     ### reduce number of bins in likelihood function, contains normalization
-    return LikelihoodsAdd( [P], [x], shrink=bins, log=log, renormalize=np.sum( P*np.diff(x) ) )
+    ### Actual work is done by LikelihoodsAdd, which adds up several P to new range wit limited number of bins
+    ### to shrink function, add P=0 with identical range
+    return LikelihoodsAdd( [P, np.zeros(len(x))], [x,x], shrink=bins, log=log, renormalize=np.sum( P*np.diff(x) ) )
 
 
-def LikelihoodConvolve( f, x_f, g, x_g, shrink=True, log=True, absolute=False ):
+def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False ):
     ### compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
     ###  shrink=True: number of bins of result reduced to number of bins in f (will get big otherwise)
     ###  log: indicates whether x_f and x_g are log-scaled
@@ -490,51 +632,57 @@ def LikelihoodConvolve( f, x_f, g, x_g, shrink=True, log=True, absolute=False ):
 
 
 
-def LikelihoodsConvolve( Ps, xs, **kwargs ):
+def LikelihoodsConvolve( Ps=[], xs=[], **kwargs ):
     ### iteratively convolve likelihood functions 
     ###  kwargs for Convole Probability
     P, x = Ps[0], xs[0]
     i = 0.
     for P_, x_ in zip( Ps[1:], xs[1:] ):
-        P, x = ConvolveProbability( P, x, P_, x_, **kwargs )
+        P, x = LikelihoodConvolve( P, x, P_, x_, **kwargs )
         i += 1
         P /= np.sum( P*np.diff(x) )
     return P, x
 
 
-def LikelihoodRegion( region, models, weights=None, **kwargs ):
+def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, **kwargs ):
     ### return likelihood for region, if multiple models are provided, their likelihoods are summed together 
     ###  weights: weights to be applied to the models
     ###  kwargs: for GetLikelihood
     Ps, xs = [], []
     for model in models:
-        P, x = GetLikelihood( region, model, **kwargs  )
+        P, x = GetLikelihood( region=region, model=model, **kwargs  )
         
         Ps.append( P )
         xs.append( x )
-    return AddProbabilities( Ps, xs, weights=weights )
+    return LikelihoodsAdd( Ps, xs, weights=weights )
 
 
-    
-def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=64, force=False, **scenario ):
+def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, **scenario ):
     ### return the full likelihood function for measure in the given scenario
     ###  redshift: of the source
     ###  nside_IGM: pixelization of IGM full-sky maps
-    ###  force=False: Try to read previous results from file, otherwise compute and write to file
 
-
-    ## check if key is in probability file and return that
-    if not force:
-        try:
-            P, x = GetLikelihood_Full( measure=measure, redshift=np.round(redshift,4), **scenario )
-            return P, x
-        except:
-            pass
-                                  
     ## collect likelihood functions for all regions along the LoS
     Ps, xs = [], []
+
+    for region in regions:
+        model = scenario.get( region )
+        if model:
+            P, x = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift  )
+            Ps.append( P )
+            xs.append( x )
+    if len(Ps) == 0:
+        sys.exit( "you must provide a reasonable scenario" )
+    P, x = LikelihoodsConvolve( Ps, xs, absolute= measure == 'RM' )
+    
+    ## write to file
+    Write2h5( likelihood_file_Full, [P,x], [ KeyFull( measure=measure, redshift=np.round(redshift,4), axis=axis, **scenario ) for axis in ['P','x']] )
+    
+    return P,x
+
+'''   ### old, long and ugly version
     if len( scenario['model_MW'] ) > 0:
-        P, x = LikelihoodRegion( 'MilkyWay', scenario['model_MW'], measure=measure  )
+        P, x = LikelihoodRegion( region='MW', model=scenario['model_MW'], measure=measure  )
         Ps.append( P )
         xs.append( x )
     if len( scenario['model_IGM'] ) > 0:
@@ -559,14 +707,38 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=64, force=False, **sce
     Write2h5( likelihood_file_Full, [P,x], [ KeyFull( measure=measure, redshift=np.round(redshift,4), axis=axis, **scenario ) for axis in ['P','x']] )
     
     return P,x
+'''
+
+def LikelihoodTelescope( measure='DM', telescope='parkes', population='smd', nside_IGM=4, **scenario ):
+    ### return the likelihood function for measure expected to be observed by telescope
+    ###  nside_IGM: pixelization of IGM full-sky maps
+        
+    ## prior on redshift is likelihood based on FRB population and telescope selection effects 
+    Pz, zs = GetLikelihood_Redshift( population=population, telescope=telescope )
+    
+    ## possible solutions for all redshifts are summed, weighed by the prior
+    Ps, xs = [], []
+    for z in redshift_bins:
+        P, x = GetLikelihood_Full( measure=measure, redshift=z, **scenario )
+        Ps.append(P)
+        xs.append(x)
+    P, x = LikelihoodsAdd( Ps, xs, renormalize=1., weights=Pz )
+    Write2h5( filename=likelihood_file_telescope, datas=[P,x], keys=[ KeyTelescope( measure=measure, telescope=telescope, population=population, axis=axis, **scenario) for axis in ['P','x'] ] )
+    return P, x
 
 
 
-def LikelihoodMeasureable( min=1., **kwargs ):
+
+def LikelihoodMeasureable( min=1., telescope=None, population=None, **kwargs ):
     ### returns the part of full likelihood function above the accuracy of telescopes, renormalized to 1
     ###  min: minimal value considered to be measurable
     ###  kwargs: for the full likelihood
-    P, x = LikelihoodFull( **kwargs )
+    ###  telescope: indicate survey of telescope to be predicted (requires population. If None, redshift is required)
+    if telescope:
+        P, x = GetLikelihood_Telescope( telescope=telescope, population=population, **kwargs )
+    else:
+        P, x = GetLikelihood_Full( **kwargs )
+
     ix, = np.where( x >= min )
     x = x[ix]
     P = P[ix[:-1]] ## remember, x is range of P
@@ -576,75 +748,75 @@ def LikelihoodMeasureable( min=1., **kwargs ):
 redshift_bins = np.arange( 0.1,6.1,0.1)
 redshift_range = np.arange( 0.0,6.1,0.1)
 
-def LikelihoodRedshift( DMs, scenario, SMs=None, population='flat', telescope='None' ):
-    ### returns likelihood functions of redshift for observed DMs (and SMs)
+def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', telescope='None' ):
+    ### returns likelihood functions of redshift for observed DMs (and taus)
     ### can be used to obtain estimate and deviation
     ###  DMs, SMs: 1D arrays of identical size, contain extragalactic component of observed values
     ###  scenario: dictionary of models combined to one scenario
     ###  population: assumed cosmic population of FRBs
-    ###  telescope: in action to observe DMs, RMs and SMs
+    ###  telescope: in action to observe DMs, RMs and taus
 
-    P_redshift = np.zeros( [len(DMs),len(redshift_bins)] )
+    Ps = np.zeros( [len(DMs),len(redshift_bins)] )
     ## for each redshift
-    for iredshift, redshift in enumerate( redshift_bins ):
+    for iz, z in enumerate( redshift_bins ):
         ## calculate the likelihood of observed DM 
-        P_redshift[:,iredshift] = Likelihoods( DMs, *LikelihoodFull( typ='DM', redshift=redshift, density=True, **scenario) ) 
+        Ps[:,iz] = Likelihoods( DMs, *GetLikelihood_Full( typ='DM', redshift=z, density=True, **scenario) ) 
     
-    ## improve redshift estimate with additional information from SM, which is more sensitive to high overdensities in the LoS
+    ## improve redshift estimate with additional information from tau, which is more sensitive to high overdensities in the LoS
     ## procedure is identical, the likelihood functions are multiplied
-    if SMs is not None:
-        P_redshift_ = np.zeros( [len(DMs),len(redshift_bins)] )
-        for iredshift, redshift in enumerate(redshift_bins):
-            P_redshift_[:,iredshift] = Likelihoods( SMs, *LikelihoodFull( typ='SM', redshift=redshift, density=True, **scenario) )  ### not all SM are measureable. However, here we compare different redshifts in the same scenario, so the amount of SM above SM_min is indeed important and does not affect the likelihood of scenarios. Instead, using LikelihoodObservable here would result in wrong estimates.
-        P_redshift *= P_redshift_
-        P_redshift_= 0
+    if taus is not None:
+        Ps_ = np.zeros( [len(DMs),len(redshift_bins)] )
+        for iz, z in enumerate(redshift_bins):
+            Ps_[:,iz] = Likelihoods( taus, *GetLikelihood_Full( typ='tau', redshift=z, density=True, **scenario) )  ### not all tau are measureable. However, here we compare different redshifts in the same scenario, so the amount of tau above tau_min is indeed important and does not affect the likelihood of scenarios. Instead, using LikelihoodObservable here would result in wrong estimates.
+        Ps *= Ps_
+        Ps_= 0
     
     ## consider prior likelihood on redshift according to FRB population and telescope selection effects 
     if population == 'flat':
-        pi_redshift = np.array([1.])
+        pi = np.array([1.])
     else:
-        pi_redshift = GetLikelihood_Redshift( population=population, telescope=telescope )
-    P_redshift *= np.resize( pi_redshift, [1,len(redshift_bins)] )
+        pi, x = GetLikelihood_Redshift( population=population, telescope=telescope )
+    Ps = Ps * np.resize( pi, [1,len(redshift_bins)] )
                     
     ## renormalize to 1 for every DM
-    P_redshift /= np.resize( np.sum( P_redshift * np.resize( np.diff( redshift_range ), [1,len(redshift_range)-1] ), axis=1 ), [len(DMs),1] )
+    Ps = Ps / np.resize( np.sum( Ps * np.resize( np.diff( redshift_range ), [1,len(redshift_bins)] ), axis=1 ), [len(DMs),1] )
 
-    return P_redshift, redshift_range
+    return Ps, redshift_range
 
-def LikelihoodCombined( DMs, RMs, SMs=None, scenario={}, prior_BO=1., population='flat', telescope='None' ):
-    ### compute the likelihood of tuples of DM, RM (and SM) in a LoS scenario
-    ###  DMs, RMs, SMs: 1D arrays of identical size, contain extragalactic component of observed values
+def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior_BO=1., population='flat', telescope='None' ):
+    ### compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
+    ###  DMs, RMs, taus: 1D arrays of identical size, contain extragalactic component of observed values
     ###  scenario: dictionary of models combined to one scenario
     ###  prior_B0: prior attributed to IGMF model, scalar or 1D array with size identical to DMs
     ###  population: assumed cosmic population of FRBs
-    ###  telescope: in action to observe DMs, RMs and SMs
+    ###  telescope: in action to observe DMs, RMs and taus
 
 
     result = np.zeros( len(DMs) )
     
-    ## estimate likelihood of source redshift based on DM and SM
-    P_redshift_DMs, redshift_range = LikelihoodRedshift( DMs, scenario, SMs=SMs, population=population, telescope=telescope )
+    ## estimate likelihood of source redshift based on DM and tau
+    P_redshifts_DMs, redshift_range = LikelihoodRedshift( DMs, scenario, taus=taus, population=population, telescope=telescope )
     
     ## for each possible source redshift
-    for redshift, p_redshift in zip( redshift_bins, P_redshift_DMs.transpose() ):
+    for redshift, P_redshift in zip( redshift_bins, P_redshifts_DMs.transpose() ):
         ## estimate likelihood of scenario based on RM, using the redshift likelihood as a prior
         ##  sum results of all possible redshifts
-        result += prior_BO * p_redshift * Likelihoods( RMs, *LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario) )
+        result += prior_BO * P_redshift * Likelihoods( RMs, *LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario) )
     return result
 
 
 
-def BayesFactorCombined( DMs, RMs, scenario1, scenario2, SMs=None, population='flat', telescope='None' ):
-    ### for set of observed tuples of DM, RM (and SM), compute total Bayes factor that quantifies corroboration towards scenario1 above scenario2 
+def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, population='flat', telescope='None' ):
+    ### for set of observed tuples of DM, RM (and tau), compute total Bayes factor that quantifies corroboration towards scenario1 above scenario2 
     ### first computes the Bayes factor for each tuple, then computes the product of all bayes factors
-    ###  DMs, RMs, SMs: 1D arrays of identical size, contain extragalactic component of observed values
+    ###  DMs, RMs, taus: 1D arrays of identical size, contain extragalactic component of observed values
     ###  scenario1/2: dictionary of models combined to one scenario
     ###  population: assumed cosmic population of FRBs
-    ###  telescope: in action to observe DMs, RMs and SMs
-    return np.prod( LikelihoodCombined( DMs, RMs, scenario1, SMs=SMs ) / LikelihoodCombined( DMs, RMs, scenario2, SMs=SMs ) )
+    ###  telescope: in action to observe DMs, RMs and taus
+    return np.prod( LikelihoodCombined( DMs, RMs, scenario1, taus=taus ) / LikelihoodCombined( DMs, RMs, scenario2, taus=taus ) )
 
 
-def Likelihood2Expectation( P, x, log=True,  density=True ):      ## mean works, std is slightly too high???
+def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True ):      ## mean works, std is slightly too high???
     ### computes the estimate value and deviation from likelihood function (must be normalized to 1)
     ###  log: indicates, whether x is log-scaled
     ###  density: indicates whether P is probability density, should always be true
@@ -668,9 +840,49 @@ def Likelihood2Expectation( P, x, log=True,  density=True ):      ## mean works,
 
 
 ## sample distributions
-def uniform_log( lo, hi, N ):
+
+def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
+    ### return sample of N according to likelihood function P(x) 
+    ###  P is renormalized probability density, i. e. sum(P*dx)=1
+    ###  log: indicates whether x is log-scaled
+    Pd = P*np.diff(x)
+    if np.round( np.sum(Pd), 4) != 1:
+        sys.exit( " 1 != %f" % (np.sum(Pd)) )
+    f = Pd.max()
+    lo, hi = x[0], x[-1]
+    if log:
+        lo, hi = np.log10( [lo,hi] )
+    res = []
+    while len(res) < N:
+        r = np.random.uniform( high=hi, low=lo, size=N )
+        if log:
+            r = 10.**r
+        z = np.random.uniform( size=N )
+        p = Likelihoods( r, P/f, x )
+        res.extend( r[ np.where( z < p )[0] ] )
+    return res[:N]
+
+
+def FakeFRBs( measures=['DM','RM'], N=50, telescope='chime', population='smd', **scenario):
+    ### returns measures of a fake survey of N FRBs expected to be observed by telescope assuming population & scenario for LoS
+    FRBs = {}
+    for measure in measures:
+        ## load likelihood function 
+        if measure == 'RM':
+            ## due to the ionosphere foreground, only allow for RM > 1 rad m^-2 to be observed
+            P, x = LikelihoodMeasureable( min=RM_min, measure=measure, telescope=telescope, population=population, **scenario )
+        else:
+            P, x = GetLikelihood_Telescope( measure=measure, telescope=telescope, population=population, **scenario )
+    
+        ##   sample likelihood function
+        FRBs[measure] = RandomSample( N, P, x )
+    
+    return FRBs
+
+def uniform_log( lo=1., hi=2., N=10 ):
     ## returns N samples of a log-flat distribution from lo to hi
     lo = np.log10(lo)
     hi = np.log10(hi)
     return 10.**np.random.uniform( lo, hi, N )
+
 
