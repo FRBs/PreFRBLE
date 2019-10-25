@@ -56,6 +56,7 @@ def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=mo
 ##                if i_ray > i_ray_max:
 ##                    break
                 key = '/'.join( [ model, 'chopped',  str(i_ray), measure] )
+                ## read LoS observables for current ray
                 rays.append( f[key].value )
                 n_rays += 1 
                 i_ray += 1     ##
@@ -67,7 +68,7 @@ def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=mo
             if absolute:
                 rays = np.abs(rays)
             ## for each redshift, compute the likelihood function of the bunch and add to full result, weighted by number of rays in current bunch
-            histograms += float(len(rays))*np.array( [ histogram( rays[:,i], bins=nbins, range=x_range, density=True, log=True if measure=='DM' or absolute else False )[0] for i in range(len(redshift_skymaps[1:]) ) ] )
+            histograms += float(len(rays))*np.array( [ histogram( rays[:,i], bins=nbins, range=x_range, density=True, log=True if measure in ['DM','SM'] or absolute else False )[0] for i in range(len(redshift_skymaps[1:]) ) ] )
 
             n_iter += 1
             print '%.0f percent' % ( 100*float(i_ray)/i_ray_max ), 
@@ -77,6 +78,9 @@ def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=mo
 
     ## range of the logarithmic histogram bins 
     x = 10.**np.linspace( *np.log10(x_range), num=nbins+1 )
+
+    dx = np.diff(x)
+    print 'produced likelihood renormalization check', [ np.sum( histograms*dx, axis=1 ) ]
     
     ## write to file
     for i_z, z in enumerate( redshift_skymaps[1:] ):
@@ -87,6 +91,8 @@ def MakeFarLikelihoodFunction( nbins, x_range, bunch=128, measure='DM', model=mo
 
 def GetLikelihood( z, model=model, typ='near', nside=nside, measure='DM', absolute=False ):
     ## read likelihood function from likelihood_file_IGM
-    keys = [ KeyLikelihood( z, model, typ, nside, '|%s|' % measure if absolute else measure, which ) for which in [ 'P', 'x' ] ]
+    keys = [ KeyLikelihood_IGM( z, model, typ, nside, '|%s|' % measure if absolute else measure, which ) for which in [ 'P', 'x' ] ]
+
+    print keys
     return tuple([ h5.File( likelihood_file_IGM )[key].value for key in keys ])
 

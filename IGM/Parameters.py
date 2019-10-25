@@ -15,6 +15,7 @@ model_tag = 'primordial'
 nside = 2**2 #2**6                         ## healpix resolution parameter
 redshift_max = 6.0                   ## maximum redshift of LoS
 observer_position = np.ones(3) * 0.5 ## observer in center of simulation volume 
+overestimate_SM = True  ## use snapshots before their time has come
 
 N_skymaps_near = 10  ## number of skymaps taken form constrained ray
 
@@ -61,7 +62,7 @@ redshift_max_near = z_from_t( t_from_z( 0 ) - dsz0.domain_width.in_cgs()[0] * mi
 redshift_skymaps_near = np.linspace(0,redshift_max_near,1+N_skymaps_near)  ## redshifts of constrained skymaps
 
 
-z_snaps, redshift_snapshots = RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, redshift_accuracy )
+z_snaps, redshift_snapshots = RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, redshift_accuracy, overestimate_SM )
 
 traj_length_min = min( border[1] - border[0] ) / 2                  ## minimum length of LoS segment, set to half box edgelength ( maximum length that doesn't exclude positions )
 box_fractions = BoxFractions( ts, min(domain_width_code), redshift_snapshots )  ## number of volume transitions required for the path length in snapshot

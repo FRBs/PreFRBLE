@@ -69,23 +69,33 @@ def TimeSeries( model_dir ):
     return yt.load( series )
 
 
-def RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, redshift_accuracy ):
+def RedshiftSnapshots( ts, redshift_max, redshift_max_near, redshift_trans, redshift_accuracy, overestimate_SM=False ):
     ## read redshifts of snapshots in yt-TimeSeries ts
-    ## return redshift of snapshots, z_snaps, and redshifts that indicate when the snapshots is used, redshift_snapshots
+    ## return 
+    ##    z_snaps: redshift of snapshots
+    ##    redshift_snapshots: redshift intervals to be probed
     z_snaps = [ ds.current_redshift for ds in ts ]
     z_snaps.sort()
     ## cut all redshifts >= redshift_max
     z_snaps = np.array(z_snaps)
-    redshift_snapshots = list( z_snaps[ np.where( z_snaps < redshift_max ) ] )
-    if np.round(redshift_snapshots[0],redshift_accuracy) == 0: 
+    redshift_snapshots = list( np.round( z_snaps[ np.where( z_snaps < redshift_max ) ] , redshift_accuracy) )
+    ## in case redshift_max is not in z_snaps, add to list
+    if not redshift_max in redshift_snapshots:
+        redshift_snapshots.append( redshift_max )
+    if not overestimate_SM:
+        ## if no additional value is added, the snapshots will be used until their redshift is reached; used before their time has come. This overestimates how fast structure forms, allowing for higher density peaks at earlier times. 
+        ## if another value is added, snapshots will be used once their snapshot is reached; used when their time has come. This underestimates the following structure formation
+        if np.round(redshift_snapshots[0],redshift_accuracy) == 0: 
         # if final snapshot is at z=0, use it from half time since previous snapshot ( add redshift of transition to list )
-        redshift_snapshots.append( redshift_trans )
-    else:
-        ## use final snapshot until z=0 (add 0 to list)
-        redshift_snapshots.append( 0. )  
-    redshift_snapshots.append( redshift_max_near )
+            redshift_snapshots.append( redshift_trans )
+        else:
+            ## use final snapshot until z=0 (add 0 to list)
+            redshift_snapshots.append( 0. )  
+#    redshift_snapshots.append( redshift_max_near ) ### only needed if far rays should contain constrained segment in final snapshot. However, this is very misleading, as the rest of the LoS is not constrained, hence the full LoS is not constrained and nothing is won by considering that in the final shot. Hence, never use!!!
 
     redshift_snapshots.sort()
+    ## LoS should always reach exact z=0
+    redshift_snapshots[0] = 0
     return z_snaps, np.array(redshift_snapshots)
 
 def BoxFractions( ts, domain_width_code, redshift_snapshots ):

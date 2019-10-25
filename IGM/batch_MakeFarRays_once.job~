@@ -1,0 +1,47 @@
+#!/bin/bash
+#SBATCH --job-name=PreFRBLE
+#SBATCH --mail-user=stefan.hackstein@hs.uni-hamburg.de
+#SBATCH --partition=std
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=12:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-type=END
+#SBATCH --export=NONE
+
+
+
+#SBATCH --output=/work/stuf315/PreFRBLE/log/FRB.out
+
+## s : number of LoS to be produced, should be multiple of w
+## i : index of first LoS
+## w : number of parallel workers on single node
+
+source /sw/batch/init.sh
+source /home/stuf315/.source_crpropa_new
+
+
+cd /work/stuf315/PreFRBLE/IGM
+
+while getopts ":s:i:w:" o; do
+    case "${o}" in
+        s)
+            s=${OPTARG}
+            ;;
+        i)
+            i=${OPTARG}
+            ;;
+        w)
+            w=${OPTARG}
+            ;;
+    esac
+done
+
+echo $s
+echo $i
+echo $w
+
+ipython execute_MakeFarRays.py $s $i $w
+
+
+# end of SBATCH script

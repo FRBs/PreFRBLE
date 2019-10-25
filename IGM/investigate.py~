@@ -1,0 +1,11 @@
+import h5py as h5
+from Physics import GasDensity
+
+
+## find all files that belong to ray
+## for each file
+##   read data (density, redshift)
+##   plot( z, rho )
+## plot GasDensity
+
+g = h5.File(f)['grid']
