@@ -10,11 +10,14 @@ linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Progenitor'
 models_MW = ['JF12']
 models_IGM = ['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd']
 models_Host = ['Rodrigues18/smd', 'Rodrigues18/sfr']
-models_Inter = ['Rodrigues18/smd', 'Rodrigues18/sfr']
+models_Inter = ['Rodrigues18/smd']
 models_Progenitor = ['Piro18/uniform/Rodrigues18/smd', 'Piro18/uniform/Rodrigues18/sfr', 'Piro18/wind', 'Piro18/wind+SNR']
 
 
-RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes
+RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes, is limited by precision of forground removel of Milky Way and Ionosphere
+tau_min = 0.01 # ms    ## minimal tau measureable by telescopes, chosen to be smallest value available in FRBcat. However, depends on telescope
+tau_max = 50.0 # ms    ## maximal reasonable tau measured by telescopes, chosen to be biggest value observed so far (1906.11305). However, depends on telescope
+
 
 units = {
     'DM'       :r"pc cm$^{-3}$",
@@ -46,6 +49,7 @@ scale_factor_exponent = { ## used to redshift results of progenitor
 ## main working folder
 root = '/work/stuf315/PreFRBLE/results/'
 root = '/hummel/PreFRBLE/'
+root = '/data/PreFRBLE/'
 #root = '/media/hqi/6A57-6B65/PreFRBLE/results/'
 
 root_likelihood  = root + 'likelihood/'
@@ -366,6 +370,14 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
+def PlotTelescope( measure='DM', telescope='parkes', population='smd', ax=None, label=None, scenario={}, **kwargs ):
+    ### Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
+    if ax is None:
+        fig, ax = plt.subplots()
+    P, x = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, **scenario )
+    PlotLikelihood( x, P, measure=measure, ax=ax, **kwargs )
+    plt.tight_layout()
+
 def PlotContributions( measure='DM', redshift=0.1, **scenario ):
     fig, ax = plt.subplots()
     for region in regions:
@@ -674,7 +686,6 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, **scenario ):
 
     ## collect likelihood functions for all regions along the LoS
     Ps, xs = [], []
-
     for region in regions:
         model = scenario.get( region )
         if model:
@@ -735,7 +746,7 @@ def LikelihoodTelescope( measure='DM', telescope='parkes', population='smd', nsi
         P, x = GetLikelihood_Full( measure=measure, redshift=z, **scenario )
         Ps.append(P)
         xs.append(x)
-    P, x = LikelihoodsAdd( Ps, xs, renormalize=1., weights=Pz )
+    P, x = LikelihoodsAdd( Ps, xs, renormalize=1., weights=Pz ) ### !!! weight Pz, Pz*Dz or Pz*dl(z) ???
     Write2h5( filename=likelihood_file_telescope, datas=[P,x], keys=[ KeyTelescope( measure=measure, telescope=telescope, population=population, axis=axis, **scenario) for axis in ['P','x'] ] )
     return P, x
 
