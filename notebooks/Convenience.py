@@ -14,6 +14,13 @@ models_Inter = ['Rodrigues18/smd']
 models_Progenitor = ['Piro18/uniform/Rodrigues18/smd', 'Piro18/uniform/Rodrigues18/sfr', 'Piro18/wind', 'Piro18/wind+SNR']
 
 
+telescopes = [ 'ASKAP', 'CHIME', 'Parkes' ]  ## names used in PreFRBLE, identical to telescope names
+populations = [ 'SMD', 'SFR', 'coV' ]
+telescopes_FRBpoppy = { 'ASKAP':'askap-fly', 'CHIME':'chime', 'Parkes':'parkes' }  ## names used in FRBpoppy
+telescopes_FRBcat = { 'ASKAP':'ASKAP', 'CHIME':'CHIME/FRB', 'Parkes':'parkes' }  ## names used in FRBpoppy
+populations_FRBpoppy = { 'SFR':'sfr', 'SMD':'smd', 'coV':'vol_co' } ## names used in FRBpoppy
+
+
 RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes, is limited by precision of forground removel of Milky Way and Ionosphere
 tau_min = 0.01 # ms    ## minimal tau measureable by telescopes, chosen to be smallest value available in FRBcat. However, depends on telescope
 tau_max = 50.0 # ms    ## maximal reasonable tau measured by telescopes, chosen to be biggest value observed so far (1906.11305). However, depends on telescope
@@ -50,7 +57,7 @@ scale_factor_exponent = { ## used to redshift results of progenitor
 root = '/work/stuf315/PreFRBLE/results/'
 root = '/hummel/PreFRBLE/'
 root = '/data/PreFRBLE/'
-#root = '/media/hqi/6A57-6B65/PreFRBLE/results/'
+root = '/media/hqi/6A57-6B65/PreFRBLE/'
 
 root_likelihood  = root + 'likelihood/'
 root_results = root + 'results/'
@@ -107,13 +114,13 @@ def Deff( z_s=np.array(1.0), ## source redshift
     return D_L * D_LS / D_S
 
 
-def ScatteringTime( SM=None,  ## effective SM in the observer frame, kpc m^-20/3
+def ScatteringTime( SM=None,  ## kpc m^-20/3, effective SM in the observer frame
                    redshift=0.0, ## of the scattering region, i. e. of effective lense distance
-                   D_eff = 1., # Gpc
+                   D_eff = 1., # Gpc, effective lense distance
                    lambda_0 = 0.23, # m, wavelength
                   ):
     ### computes scattering time in ms of FRB observed at wavelength lambda_0, Marcquart & Koay 2013 Eq.16b 
-    return 1.2e7 * lambda_0**4.4 / (1+redshift) * D_eff * SM**1.2
+    return 1.8e5 * lambda_0**4.4 / (1+redshift) * D_eff * SM**1.2
     
 def Freq2Lamb( nu=1. ): # Hz 2 meters
     return speed_of_light.in_units('m/s').value / nu
@@ -198,7 +205,7 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
     return '/'.join( models )
 '''
 
-def KeyTelescope( measure='DM', axis='P', telescope='parkes', population='smd', **scenario ):
+def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', **scenario ):
     models = [ telescope, population ]
     for region in regions:
         model = scenario.get( region )
@@ -233,7 +240,7 @@ def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, m
 
 
 
-def GetLikelihood_Redshift( population='sfr', telescope='None' ):
+def GetLikelihood_Redshift( population='SMD', telescope='None' ):
     with h5.File( likelihood_file_redshift ) as f:
         P = f[ KeyRedshift( population=population, telescope=telescope, axis='P' ) ].value
         x = f[ KeyRedshift( population=population, telescope=telescope, axis='x' ) ].value
@@ -300,7 +307,7 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
             pass
     return LikelihoodFull( measure=measure, redshift=redshift, **scenario )
 
-def GetLikelihood_Telescope( telescope='parkes', population='smd', measure='DM', force=False, **scenario ):
+def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, **scenario ):
     if not force:
         try:
             with h5.File( likelihood_file_Full ) as f:
@@ -334,7 +341,7 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
         i_tele = np.where( header == 'telescope' )[0][0]
         i_s = [i_ID, i_DM, i_DM_gal, i_RM, i_tau, i_zs, i_tele]  ## order must fit order of FRB_dtype
         for row in reader:
-            if telescope and ( row[i_tele] != telescope ) :
+            if telescope and ( row[i_tele] != telescope_FRBcat[telescope] ) :
                 continue
             if tau and ( row[i_tau] == 'null' ) :
                 continue
@@ -342,7 +349,7 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
                 continue
             FRBs.append( tuple( [ row[i].split('&')[0] for i in i_s ] ) )
     if print_number:
-        print len(FRBs)
+        print( len(FRBs) )
     return np.array( FRBs, dtype=FRB_dtype )
 
 
@@ -370,7 +377,7 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
-def PlotTelescope( measure='DM', telescope='parkes', population='smd', ax=None, label=None, scenario={}, **kwargs ):
+def PlotTelescope( measure='DM', telescope='Parkes', population='SMD', ax=None, label=None, scenario={}, **kwargs ):
     ### Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
     if ax is None:
         fig, ax = plt.subplots()
@@ -390,12 +397,12 @@ def PlotContributions( measure='DM', redshift=0.1, **scenario ):
     plt.title( "redshift = %.1f" % redshift )
     plt.tight_layout()
 
-def Colorbar( x=np.linspace(0,1,2), label=None, labelsize=16, cmap=rainbow ):
+def Colorbar( x=np.linspace(0,1,2), label=None, labelsize=16, cmap=rainbow, ax=None ):
     ### plot colorbar at side of plot
     ###  x: 1D array of data to be represented by rainbow colors
     sm = plt.cm.ScalarMappable( cmap=cmap, norm=plt.Normalize(vmin=x.min(), vmax=x.max() ) )
     sm._A = []
-    cb = plt.colorbar(sm )
+    cb = plt.colorbar(sm, ax=ax )
     cb.ax.tick_params( labelsize=labelsize )
     if label is not None:
         cb.set_label(label=label, size=labelsize)
@@ -429,7 +436,7 @@ def mean( x=10.**np.arange(2), log=False, **kwargs ):
 def coord2normal(x=10.**np.arange(2), lim=(1,10), log=False):
     ''' transforms coordinate x in (logarithmic) plot to normal coordinates (0,1) '''
     if log:
-        return (np.log(x) - np.log(lim[0]))/(np.log(lim[1]) - np.log(lim[0]))
+        return (np.log10(x) - np.log10(lim[0]))/(np.log10(lim[1]) - np.log10(lim[0]))
     else:
         return ( x - lim[0] )/( lim[1] - lim[0] )
 
@@ -453,11 +460,15 @@ def PlotLimit( ax=None, x=[1,1], y=[1,2], label='', lower_limit=True, arrow_numb
         label, fontsize=14, rotation= -90 * limit_x * upper,
         verticalalignment='center', horizontalalignment='center', color=kwargs['color'])
     x_ar, y_ar = get_steps( arrow_number + 2, x, log=xlog)[1:-1], get_steps( arrow_number + 2, y, log=ylog)[1:-1]
+    x_ar = get_steps( arrow_number + 2, coord2normal( x, ax.get_xlim(), log=xlog ))[1:-1]
+    y_ar = get_steps( arrow_number + 2, coord2normal( y, ax.get_ylim(), log=ylog ))[1:-1]
     x_length, y_length = - upper * arrow_length * limit_x, - upper * arrow_length * limit_y
 #    for xa, ya in itertools.izip( x_ar, y_ar ):
 #        ax.arrow( xa, ya, x_length, y_length, width=arrow_width, **kwargs )
-    for xa, ya in itertools.izip( coord2normal( x_ar, ax.get_xlim(), log=xlog ), coord2normal( y_ar, ax.get_ylim(), log=ylog ) ):
-        plt.arrow( xa, ya, x_length, y_length, transform=ax.transAxes, width=arrow_width, head_width=3*arrow_width, length_includes_head=True, **kwargs )
+#    for xa, ya in itertools.izip( coord2normal( x_ar, ax.get_xlim(), log=xlog ), coord2normal( y_ar, ax.get_ylim(), log=ylog ) ):
+    for xa, ya in itertools.izip( x_ar, y_ar ):
+        ax.arrow( xa, ya, x_length, y_length, transform=ax.transAxes, width=arrow_width, head_width=3*arrow_width, length_includes_head=True, **kwargs )
+#        ax.arrow( xa, ya, x_length, y_length, transform=ax.transAxes, width=arrow_width, head_width=3*arrow_width, length_includes_head=True, **kwargs )
     return; 
 
 
@@ -730,7 +741,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, **scenario ):
     return P,x
 '''
 
-def LikelihoodTelescope( measure='DM', telescope='parkes', population='smd', nside_IGM=4, **scenario ):
+def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, **scenario ):
     ### return the likelihood function for measure expected to be observed by telescope
     ###  nside_IGM: pixelization of IGM full-sky maps
         
@@ -842,9 +853,9 @@ def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, 
     L1 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus )
     L2 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus )
     B = np.prod(L1/L2)
-    print L1
-    print L2
-    print B
+#    print( L1 )
+#    print( L2 )
+#    print( B )
     return np.prod( LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus ) / LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus ) )
 
 
@@ -895,7 +906,7 @@ def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
     return res[:N]
 
 
-def FakeFRBs( measures=['DM','RM'], N=50, telescope='chime', population='smd', **scenario):
+def FakeFRBs( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', **scenario):
     ### returns measures of a fake survey of N FRBs expected to be observed by telescope assuming population & scenario for LoS
     FRBs = {}
     for measure in measures:
