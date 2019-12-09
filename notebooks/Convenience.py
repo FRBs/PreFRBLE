@@ -248,8 +248,8 @@ def GetLikelihood_Redshift( population='SMD', telescope='None' ):
 
 def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure='DM' ):
     with h5.File( likelihood_file_galaxy ) as f:
-        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ].value * (1+redshift)**( 2 - (measure=='DM') )
-        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**( 2 - (measure=='DM') )
+        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
     return P, x
 
 def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
