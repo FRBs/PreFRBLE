@@ -5,7 +5,7 @@ import yt
 ## physical constraints
 
 RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes, is limited by precision of forground removel of Milky Way and Ionosphere
-tau_min = 0.01 # ms    ## minimal tau measureable by telescopes, chosen to be smallest value available in FRBcat. However, depends on telescope
+tau_min = 0.01 # ms    ## minimal tau measureable by telescopes, chosen to be smallest value available in FRBcat. However, depends on telescope, 1 ms for CHIME and ASKAP
 tau_max = 50.0 # ms    ## maximal reasonable tau measured by telescopes, chosen to be biggest value observed so far (1906.11305). However, depends on telescope
 
 
@@ -56,6 +56,25 @@ comoving_radial_distance = lambda z0, z1: co.comoving_radial_distance(z0,z1).in_
 
 
 def AngularDiameterDistance(z_o=0., z_s=1.):
+    ### compute angular diameter distance as measured for
+    ### z_o : redshift of observer
+    ### z_s : redshift of source
+
+    ## make sure both are arrays
+    redshift_observer = z_o if type(z_o) is np.ndarray else np.array([z_o])
+    redshift_source = z_s if type(z_s) is np.ndarray else np.array([z_s])
+
+    ## if one is longer than the other, assuming that the other was a single number, repeat accordingly
+    if redshift_observer.size > redshift_source.size:
+        redshift_source = redshift_source.repeat( redshift_observer.size )
+    if redshift_observer.size < redshift_source.size:
+        redshift_observer = redshift_observer.repeat( redshift_source.size )
+
+    return np.array([ ( comoving_radial_distance(0,z2) - comoving_radial_distance(0,z1) )/(1+z2) for z1, z2 in zip( redshift_observer, redshift_source )])
+
+
+
+''' old and ugly
     if type(z_o) is not np.ndarray:
         if type(z_s) is not np.ndarray:
             return ( comoving_radial_distance(0,z_s) - comoving_radial_distance(0,z_o) )/(1+z_s)
@@ -66,6 +85,8 @@ def AngularDiameterDistance(z_o=0., z_s=1.):
             return np.array([ ( comoving_radial_distance(0,z_s) - comoving_radial_distance(0,z) )/(1+z_s) for z in z_o.flat])         
         else:
             return np.array([ ( comoving_radial_distance(0,z2) - comoving_radial_distance(0,z1) )/(1+z2) for z1, z2 in zip( z_o.flat, z_s.flat )])
+'''
+
 
 def Deff( z_s=np.array(1.0), ## source redshift
          z_L=np.array(0.5)   ## redshift of lensing material
@@ -74,7 +95,7 @@ def Deff( z_s=np.array(1.0), ## source redshift
     D_L = AngularDiameterDistance( 0, z_L )
     D_S = AngularDiameterDistance( 0, z_s )
     D_LS = AngularDiameterDistance( z_L, z_s )   
-    return D_L * D_LS / D_S
+    return D_L * D_LS / D_S  ## below Eq. 15 in Macquart & Koay 2013
 
 
 def ScatteringTime( SM=None,  ## kpc m^-20/3, effective SM in the observer frame
@@ -82,7 +103,7 @@ def ScatteringTime( SM=None,  ## kpc m^-20/3, effective SM in the observer frame
                    D_eff = 1., # Gpc, effective lense distance
                    lambda_0 = 0.23, # m, wavelength
                   ):
-    ### computes scattering time in ms of FRB observed at wavelength lambda_0, Marcquart & Koay 2013 Eq.16b 
+    ### computes scattering time in ms of FRB observed at wavelength lambda_0, Marcquart & Koay 2013 Eq.16 b
     return 1.8e5 * lambda_0**4.4 / (1+redshift) * D_eff * SM**1.2
     
 def Freq2Lamb( nu=1. ): # Hz 2 meters
@@ -123,7 +144,7 @@ def NInter( z_s=6.,   ## source redshift
             n=1 , ## number density of galaxies
             comoving = False ## indicates whether n is comoving
            ):
-    ### returns total intersection likelihood for source at all redshift bins up to z_s
+     ### returns total intersection likelihood for source at all redshift bins up to z_s
     return np.cumsum( nInter( z_s, r=r, n=n, comoving=comoving) )
 
 

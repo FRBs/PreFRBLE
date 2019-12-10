@@ -1,7 +1,5 @@
-import sys, h5py as h5, numpy as np, matplotlib.pyplot as plt, yt, csv
+import sys, h5py as h5, numpy as np, yt, csv
 from time import time
-from matplotlib.cm import rainbow
-from matplotlib import colors, cm
 from PreFRBLE.file_system import *
 #from PreFRBLE.physics import *
 from PreFRBLE.labels import labels
@@ -154,6 +152,10 @@ def GetLikelihood( region='IGM', model='primordial', density=True, **kwargs ):
     return P, x
 
 def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
+
+    if len(scenario) == 1:
+        region, model = scenario.copy().popitem()
+        return GetLikelihood( region=region, model=model, redshift=redshift, measure=measure )
     if not force:
         try:
             with h5.File( likelihood_file_Full ) as f:
@@ -211,6 +213,7 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
 
 
 
+## labelling functions
 
 def LabelAddModel( label='', model='' ):
     ## adds model to label of scenario, i. e. set of combined models

@@ -8,16 +8,18 @@ def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
     ###  log: indicates whether x is log-scaled
     Pd = P*np.diff(x)
     if np.round( np.sum(Pd), 4) != 1:
-        sys.exit( " 1 != %f" % (np.sum(Pd)) )
+        sys.exit( "function is not normalized, %f != 1" % (np.sum(Pd)) )
     f = Pd.max()
     lo, hi = x[0], x[-1]
     if log:
         lo, hi = np.log10( [lo,hi] )
     res = []
     while len(res) < N:
+        ## create random uniform sample in the desired range
         r = np.random.uniform( high=hi, low=lo, size=N )
         if log:
             r = 10.**r
+        ## randomly reject candiates with chance = 1 - P to recreate P
         z = np.random.uniform( size=N )
         p = Likelihoods( r, P/f, x )
         res.extend( r[ np.where( z < p )[0] ] )
@@ -41,7 +43,7 @@ def FakeFRBs( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', *
     return FRBs
 
 def uniform_log( lo=1., hi=2., N=10 ):
-    ## returns N samples of a log-flat distribution from lo to hi
+    ## returns an N-sample of a log-flat distribution from lo to hi
     lo = np.log10(lo)
     hi = np.log10(hi)
     return 10.**np.random.uniform( lo, hi, N )
