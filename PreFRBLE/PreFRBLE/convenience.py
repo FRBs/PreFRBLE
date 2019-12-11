@@ -1,25 +1,7 @@
 import sys, h5py as h5, numpy as np, yt, csv
 from time import time
 from PreFRBLE.file_system import *
-#from PreFRBLE.physics import *
-from PreFRBLE.labels import labels
-
-regions = ['MW', 'IGM', 'Inter', 'Host', 'Local']
-linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Local':"-."}
-
-models_MW = ['JF12']
-models_IGM = ['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd']
-models_Host = ['Rodrigues18/smd', 'Rodrigues18/sfr']
-models_Inter = ['Rodrigues18/smd']
-models_Local = ['Piro18/uniform/Rodrigues18/smd', 'Piro18/uniform/Rodrigues18/sfr', 'Piro18/wind', 'Piro18/wind+SNR']
-
-
-telescopes = [ 'ASKAP', 'CHIME', 'Parkes' ]  ## names used in PreFRBLE, identical to telescope names
-populations = [ 'SMD', 'SFR', 'coV' ]
-telescopes_FRBpoppy = { 'ASKAP':'askap-fly', 'CHIME':'chime', 'Parkes':'parkes' }  ## names used in FRBpoppy
-telescopes_FRBcat = { 'ASKAP':'ASKAP', 'CHIME':'CHIME/FRB', 'Parkes':'parkes' }  ## names used in FRBpoppy
-populations_FRBpoppy = { 'SFR':'sfr', 'SMD':'smd', 'coV':'vol_co' } ## names used in FRBpoppy
-
+from PreFRBLE.parameter import *
 
 
 ## data keys inside likelihood files
@@ -82,100 +64,6 @@ def Write2h5( filename='', datas=[], keys=[] ):
                 pass
             f.create_dataset( key, data=data  )
 
-## read likelihood function from file
-def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False ):
-    if redshift < 0.1:
-        typ='near'
-    if measure == 'DM':
-        model='primordial'
-    with h5.File( likelihood_file_IGM ) as f:
-        P = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='P' ) ].value
-        x = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='x' ) ].value
-    return P, x
-
-
-
-def GetLikelihood_Redshift( population='SMD', telescope='None' ):
-    with h5.File( likelihood_file_redshift ) as f:
-        P = f[ KeyRedshift( population=population, telescope=telescope, axis='P' ) ].value
-        x = f[ KeyRedshift( population=population, telescope=telescope, axis='x' ) ].value
-    return P, x
-
-def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure='DM' ):
-    with h5.File( likelihood_file_galaxy ) as f:
-        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
-        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
-    return P, x
-
-def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
-    with h5.File( likelihood_file_galaxy ) as f:
-        P = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='P' ) ].value
-        x = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='x' ) ].value
-    return P, x
-
-
-def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
-    with h5.File( likelihood_file_galaxy ) as f:
-        P = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='P' ) ].value
-        x = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='x' ) ].value
-    return P, x
-
-def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
-    with h5.File( likelihood_file_local ) as f:
-        P = f[ KeyLocal( model=model, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
-        x = f[ KeyLocal( model=model, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
-    return P, x
-
-def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
-    with h5.File( likelihood_file_galaxy ) as f:
-        P = f[ KeyMilkyWay( model=model, measure=measure, axis='P' ) ].value
-        x = f[ KeyMilkyWay( model=model, measure=measure, axis='x' ) ].value
-    return P, x
-
-
-get_likelihood = {
-    'IGM'  :       GetLikelihood_IGM,
-    'Inter' :      GetLikelihood_Inter,
-    'Host' :       GetLikelihood_Host,
-    'Local' : GetLikelihood_Local,
-    'MilkyWay'   : GetLikelihood_MilkyWay,  
-    'MW'         : GetLikelihood_MilkyWay  
-}
-
-def GetLikelihood( region='IGM', model='primordial', density=True, **kwargs ):
-    ## wrapper to read any likelihood function written to file
-    if region == 'IGM' and kwargs['measure'] == 'RM':
-        kwargs['absolute'] = True
-    P, x = get_likelihood[region]( model=model, **kwargs )
-    if not density:
-        P *= np.diff(x)
-    return P, x
-
-def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
-
-    if len(scenario) == 1:
-        region, model = scenario.copy().popitem()
-        return GetLikelihood( region=region, model=model, redshift=redshift, measure=measure )
-    if not force:
-        try:
-            with h5.File( likelihood_file_Full ) as f:
-                P = f[ KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) ].value
-                x = f[ KeyFull( measure=measure, axis='x', redshift=redshift, **scenario ) ].value
-                return P, x
-        except:
-            pass
-    return LikelihoodFull( measure=measure, redshift=redshift, **scenario )
-
-def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, **scenario ):
-    if not force:
-        try:
-            with h5.File( likelihood_file_Full ) as f:
-                P = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', **scenario ) ].value
-                x = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='x', **scenario ) ].value
-            return P, x
-        except:
-            pass
-    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, **scenario )
 
 
 ## Read FRBcat
@@ -188,9 +76,11 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
     ###  optional: read only those FRBs observed by telescope with RM and tau
     ###  print_number:True print number of extracted FRBs 
     FRBs = []
-    with open( frbcat_file, 'rb') as f:
+    with open( frbcat_file, 'r') as f:
         reader = csv.reader( f )
-        header = np.array(reader.next())
+        header = np.array(next(reader))
+        
+#        header = np.array(reader.next())
         i_ID = 0
         i_DM = np.where( header == 'rmp_dm' )[0][0]
         i_DM_gal = np.where( header == 'rop_mw_dm_limit' )[0][0]
@@ -213,41 +103,5 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
 
 
 
-## labelling functions
-
-def LabelAddModel( label='', model='' ):
-    ## adds model to label of scenario, i. e. set of combined models
-    multi = len(model) > 1
-    no = len(model) == 0
-    
-    label += r"(" * multi
-    
-    for m in model:
-        label += labels[m]
-        label += r"+" * multi
-    if multi:
-        label = label[:-1]
-        label += r")"
-    label += r"$\ast$" * ( not no )    
-    return label
-
-
-#def LabelScenario( model_Host=[], model_IGM=[], model_Local=[], model_MW=[], weight_Host='' ):
-def LabelScenario( **scenario ):
-    ## returns plotting label of scenario, i. e. set of combined models
-    label = ''
-    for region in regions:
-        model = scenario.get( region )
-        if model:
-            label = LabelAddModel( label, model )
-    return label[:-6]
-
-''' old and ugly
-    label = LabelAddModel( label, scenario['model_IGM'] )
-    label = LabelAddModel( label, [ m for m in scenario['model_Host'] ] )
-    label = LabelAddModel( label, scenario['model_Local'] )
-    label = LabelAddModel( label, scenario['model_MW'] )
-    return label[:-6]
-'''
 
 

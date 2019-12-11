@@ -1,6 +1,11 @@
 import numpy as np, matplotlib.pyplot as plt
 from matplotlib.cm import rainbow
 from matplotlib import colors, cm
+#from PreFRBLE.convenience import *
+from PreFRBLE.label import *
+from PreFRBLE.likelihood import *
+#from PreFRBLE.physics import *
+#from PreFRBLE.parameter import *
 
 ## Convenient Plot functions
 def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):

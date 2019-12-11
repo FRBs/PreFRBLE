@@ -1,4 +1,8 @@
 import numpy as np
+from PreFRBLE.convenience import *
+#from PreFRBLE.parameter import *
+from PreFRBLE.physics import *
+
 
 ## mathematical likelihood operations
 
@@ -145,7 +149,7 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
         x = x[ x>=0] ### this makes x[0]=0, which is bad for log scale...
         x[0] = x[1]**2/x[2] ### rough, but okay... this is very close to and definitely lower than x[1] and the lowest part does not affect much the rest of the function. The important parts of te function are reproduced well
 #        x = np.append( x_min, x[1+len(x)/2:] )
-        P = np.sum( [ P[:len(P)/2][::-1], P[len(P)/2:] ], axis=0 )
+        P = np.sum( [ P[:int(len(P)/2)][::-1], P[int(len(P)/2):] ], axis=0 )
     ## renormalize full integral to 1
     P /= np.sum( P*np.diff(x) )
     if shrink:
@@ -270,8 +274,6 @@ def LikelihoodMeasureable( min=1., telescope=None, population=None, **kwargs ):
     P /= np.sum( P*np.diff(x) )
     return P, x
 
-redshift_bins = np.arange( 0.1,6.1,0.1)
-redshift_range = np.arange( 0.0,6.1,0.1)
 
 def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', telescope='None' ):
     ### returns likelihood functions of redshift for observed DMs (and taus)
@@ -368,4 +370,105 @@ def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=Tru
     if log:
         x_mean = 10.**x_mean
     return x_mean, x_std
+
+
+
+## GetLikelihood functions
+
+## read likelihood function from file
+def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False ):
+    if redshift < 0.1:
+        typ='near'
+    if measure == 'DM':
+        model='primordial'
+    with h5.File( likelihood_file_IGM, 'r' ) as f:
+        P = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='P' ) ].value
+        x = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='x' ) ].value
+    return P, x
+
+
+
+def GetLikelihood_Redshift( population='SMD', telescope='None' ):
+    with h5.File( likelihood_file_redshift, 'r' ) as f:
+        P = f[ KeyRedshift( population=population, telescope=telescope, axis='P' ) ].value
+        x = f[ KeyRedshift( population=population, telescope=telescope, axis='x' ) ].value
+    return P, x
+
+def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure='DM' ):
+    with h5.File( likelihood_file_galaxy, 'r' ) as f:
+        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
+    return P, x
+
+def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
+    with h5.File( likelihood_file_galaxy, 'r' ) as f:
+        P = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='P' ) ].value
+        x = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='x' ) ].value
+    return P, x
+
+
+def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
+    with h5.File( likelihood_file_galaxy, 'r' ) as f:
+        P = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='P' ) ].value
+        x = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='x' ) ].value
+    return P, x
+
+def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
+    with h5.File( likelihood_file_local, 'r' ) as f:
+        P = f[ KeyLocal( model=model, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyLocal( model=model, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
+    return P, x
+
+def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
+    with h5.File( likelihood_file_galaxy, 'r' ) as f:
+        P = f[ KeyMilkyWay( model=model, measure=measure, axis='P' ) ].value
+        x = f[ KeyMilkyWay( model=model, measure=measure, axis='x' ) ].value
+    return P, x
+
+
+get_likelihood = {
+    'IGM'  :       GetLikelihood_IGM,
+    'Inter' :      GetLikelihood_Inter,
+    'Host' :       GetLikelihood_Host,
+    'Local' : GetLikelihood_Local,
+    'MilkyWay'   : GetLikelihood_MilkyWay,  
+    'MW'         : GetLikelihood_MilkyWay  
+}
+
+def GetLikelihood( region='IGM', model='primordial', density=True, **kwargs ):
+    ## wrapper to read any likelihood function written to file
+    if region == 'IGM' and kwargs['measure'] == 'RM':
+        kwargs['absolute'] = True
+    P, x = get_likelihood[region]( model=model, **kwargs )
+    if not density:
+        P *= np.diff(x)
+    return P, x
+
+def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
+
+    if len(scenario) == 1:
+        region, model = scenario.copy().popitem()
+        return GetLikelihood( region=region, model=model, redshift=redshift, measure=measure )
+    if not force:
+        try:
+            with h5.File( likelihood_file_Full, 'r' ) as f:
+                P = f[ KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) ].value
+                x = f[ KeyFull( measure=measure, axis='x', redshift=redshift, **scenario ) ].value
+                return P, x
+        except:
+            pass
+    return LikelihoodFull( measure=measure, redshift=redshift, **scenario )
+
+def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, **scenario ):
+    if not force:
+        try:
+            with h5.File( likelihood_file_Full, 'r' ) as f:
+                P = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', **scenario ) ].value
+                x = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='x', **scenario ) ].value
+            return P, x
+        except:
+            pass
+    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, **scenario )
+
+
 

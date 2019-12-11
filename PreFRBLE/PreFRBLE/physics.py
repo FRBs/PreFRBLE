@@ -8,6 +8,11 @@ RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes, is limited by pr
 tau_min = 0.01 # ms    ## minimal tau measureable by telescopes, chosen to be smallest value available in FRBcat. However, depends on telescope, 1 ms for CHIME and ASKAP
 tau_max = 50.0 # ms    ## maximal reasonable tau measured by telescopes, chosen to be biggest value observed so far (1906.11305). However, depends on telescope
 
+## considered redshift bins
+redshift_bins = np.arange( 0.1,6.1,0.1)
+redshift_range = np.arange( 0.0,6.1,0.1)
+
+measures = [ 'DM', 'RM', 'SM', 'tau' ]
 
 units = {
     'DM'       :r"pc cm$^{-3}$",
@@ -133,7 +138,7 @@ def nInter( z_s=6.0,   ## source redshift
             n=1 , ## Mpc^-3 number density of galaxies
             comoving = False ## indicates whether n is comoving
            ):
-    ### compute the average number of galaxies at redshift z that intersect the LoS, Macquart & Koay 2013 Eq. 33
+    ### compute the average number of LoS intersected by a galaxy at redshift z, Macquart & Koay 2013 Eq. 33
     dz = np.diff(redshift_range[redshift_range<=z_s*1.000001]) ## small factor required to find correct bin, don't know why it fails without...
     pi_z = PriorInter( z_s, r=r, n=n, comoving=comoving)
     return  pi_z * dz

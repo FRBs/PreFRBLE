@@ -17,6 +17,8 @@ from .__version__ import version as __version__
 from . import convenience
 from . import file_system
 from . import likelihood
+from . import label
+from . import parameter
 from . import physics
 from . import sample
 

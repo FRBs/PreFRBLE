@@ -1,8 +1,7 @@
 ## main working folder
-root = '/work/stuf315/PreFRBLE/results/'
+root = '/work/stuf315/PreFRBLE/'
 root = '/hummel/PreFRBLE/'
 root = '/data/PreFRBLE/'
-root = '/media/hqi/6A57-6B65/PreFRBLE/'
 
 root_likelihood  = root + 'likelihood/'
 root_results = root + 'results/'
