@@ -1,4 +1,6 @@
 import numpy as np
+from multiprocessing import Pool
+from functools import partial
 from PreFRBLE.convenience import *
 #from PreFRBLE.parameter import *
 from PreFRBLE.physics import *
@@ -382,47 +384,47 @@ def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, m
     if measure == 'DM':
         model='primordial'
     with h5.File( likelihood_file_IGM, 'r' ) as f:
-        P = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='P' ) ].value
-        x = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='x' ) ].value
+        P = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='P' ) ][()]
+        x = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='x' ) ][()]
     return P, x
 
 
 
 def GetLikelihood_Redshift( population='SMD', telescope='None' ):
     with h5.File( likelihood_file_redshift, 'r' ) as f:
-        P = f[ KeyRedshift( population=population, telescope=telescope, axis='P' ) ].value
-        x = f[ KeyRedshift( population=population, telescope=telescope, axis='x' ) ].value
+        P = f[ KeyRedshift( population=population, telescope=telescope, axis='P' ) ][()]
+        x = f[ KeyRedshift( population=population, telescope=telescope, axis='x' ) ][()]
     return P, x
 
 def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
-        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
+        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ][()] * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ][()] / (1+redshift)**scale_factor_exponent[measure]
     return P, x
 
 def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='P' ) ].value
-        x = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='x' ) ].value
+        P = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='P' ) ][()]
+        x = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='x' ) ][()]
     return P, x
 
 
 def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='P' ) ].value
-        x = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='x' ) ].value
+        P = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='P' ) ][()]
+        x = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='x' ) ][()]
     return P, x
 
 def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
     with h5.File( likelihood_file_local, 'r' ) as f:
-        P = f[ KeyLocal( model=model, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
-        x = f[ KeyLocal( model=model, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
+        P = f[ KeyLocal( model=model, measure=measure, axis='P' ) ][()] * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyLocal( model=model, measure=measure, axis='x' ) ][()] / (1+redshift)**scale_factor_exponent[measure]
     return P, x
 
 def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyMilkyWay( model=model, measure=measure, axis='P' ) ].value
-        x = f[ KeyMilkyWay( model=model, measure=measure, axis='x' ) ].value
+        P = f[ KeyMilkyWay( model=model, measure=measure, axis='P' ) ][()]
+        x = f[ KeyMilkyWay( model=model, measure=measure, axis='x' ) ][()]
     return P, x
 
 
@@ -452,8 +454,8 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
     if not force:
         try:
             with h5.File( likelihood_file_Full, 'r' ) as f:
-                P = f[ KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) ].value
-                x = f[ KeyFull( measure=measure, axis='x', redshift=redshift, **scenario ) ].value
+                P = f[ KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) ][()]
+                x = f[ KeyFull( measure=measure, axis='x', redshift=redshift, **scenario ) ][()]
                 return P, x
         except:
             pass
@@ -463,12 +465,39 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
     if not force:
         try:
             with h5.File( likelihood_file_Full, 'r' ) as f:
-                P = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', **scenario ) ].value
-                x = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='x', **scenario ) ].value
+                P = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', **scenario ) ][()]
+                x = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='x', **scenario ) ][()]
             return P, x
         except:
             pass
     return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, **scenario )
 
+
+
+
+### procedures for fast parallel computation of combined likelihood functions
+
+def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=8 ):
+    ### compute fill likelihood functions for all redshifts and measures in scenario
+    ### for RM, also investigate all models_IGMF with identical DM, SM and tau as model_IGM in scenario
+    msrs = measures[:]
+    msrs.remove('RM')
+
+    t0 = time()
+
+    p = Pool( N_processes )
+
+    for measure in msrs:
+        f = partial( GetLikelihood_Full, measure=measure, **scenario )
+        p.map( f, redshift_bins )
+
+    for IGMF in models_IGMF:
+        tmp = scenario.copy()
+        tmp['IGM'] = [IGMF]
+        f = partial( GetLikelihood_Full, measure='RM', **tmp )
+        p.map( f, redshift_bins )
+        
+    print( "this took %.1f minutes" % ( (time()-t0) / 60 ) )
+        
 
 

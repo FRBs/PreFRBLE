@@ -1,5 +1,6 @@
+from __future__ import print_function
 import sys, h5py as h5, numpy as np, yt, csv
-from time import time
+from time import time, sleep
 from PreFRBLE.file_system import *
 from PreFRBLE.parameter import *
 
@@ -56,13 +57,14 @@ def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', 
 def Write2h5( filename='', datas=[], keys=[] ):
     if type(keys) is str:
         sys.exit( 'Write2h5 needs list of datas and keys' )
-    with h5.File( filename, 'a' ) as f:
-        for data, key in zip( datas, keys ):
-            try:
-                f.__delitem__( key )
-            except:
-                pass
-            f.create_dataset( key, data=data  )
+    with SimpleFlock( 'flock_writeh5', 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
+        with h5.File( filename, 'a' ) as f:
+            for data, key in zip( datas, keys ):
+                try:
+                    f.__delitem__( key )
+                except:
+                    pass
+                f.create_dataset( key, data=data  )
 
 
 
@@ -102,6 +104,65 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
     return np.array( FRBs, dtype=FRB_dtype )
 
 
+
+
+
+## flocker to keep parallel processes from writing to same file simultaneously
+## provided by derpston, https://github.com/derpston/python-simpleflock/blob/master/src/simpleflock.py#L14
+
+import os, fcntl, errno
+
+class SimpleFlock:
+   """Provides the simplest possible interface to flock-based file locking. Intended for use with the `with` syntax. It will create/truncate/delete the lock file as necessary."""
+
+   def __init__(self, path, timeout = None):
+      self._path = path
+      self._timeout = timeout
+      self._fd = None
+
+   def __enter__(self):
+      self._fd = os.open(self._path, os.O_CREAT)
+      start_lock_search = time()
+      while True:
+         try:
+            fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Lock acquired!
+            return
+         except (OSError, IOError) as ex:
+            if ex.errno != errno.EAGAIN: # Resource temporarily unavailable
+               raise
+            elif self._timeout is not None and time() > (start_lock_search + self._timeout):
+               # Exceeded the user-specified timeout.
+               raise
+         
+         # TODO It would be nice to avoid an arbitrary sleep here, but spinning
+         # without a delay is also undesirable.
+         sleep(0.1)
+
+   def __exit__(self, *args):
+      fcntl.flock(self._fd, fcntl.LOCK_UN)
+      os.close(self._fd)
+      self._fd = None
+
+      # Try to remove the lock file, but don't try too hard because it is
+      # unnecessary. This is mostly to help the user see whether a lock
+      # exists by examining the filesystem.
+      try:
+         os.unlink(self._path)
+      except:
+         pass
+
+'''  USAGE
+
+
+with SimpleFlock("locktest", 2):  ## "locktest" is a temporary file that tells whether the lock is active
+    ## perform action on the locked file(s)
+
+
+## file is locked when with starts until its left
+## if file is locked, code is paused until lock is released, then with is performed
+
+'''
 
 
 
