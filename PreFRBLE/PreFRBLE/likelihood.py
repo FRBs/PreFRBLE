@@ -214,7 +214,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, **scenario ):
         Ps.append( P )
         xs.append( x )
     if len( scenario['model_IGM'] ) > 0:
-        P, x = LikelihoodRegion( 'IGM', scenario['model_IGM'], measure=measure, redshift=redshift, typ='far' if redshift >= 0.1 else 'near', nside=nside_IGM, absolute= measure == 'RM'  )
+<        P, x = LikelihoodRegion( 'IGM', scenario['model_IGM'], measure=measure, redshift=redshift, typ='far' if redshift >= 0.1 else 'near', nside=nside_IGM, absolute= measure == 'RM'  )
         Ps.append( P )
         xs.append( x )
     if len( scenario['model_Inter'] ) > 0:
@@ -477,7 +477,7 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
 
 ### procedures for fast parallel computation of combined likelihood functions
 
-def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=8 ):
+def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=8, force=False ):
     ### compute fill likelihood functions for all redshifts and measures in scenario
     ### for RM, also investigate all models_IGMF with identical DM, SM and tau as model_IGM in scenario
     msrs = measures[:]
@@ -488,14 +488,21 @@ def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=
     p = Pool( N_processes )
 
     for measure in msrs:
-        f = partial( GetLikelihood_Full, measure=measure, **scenario )
-        p.map( f, redshift_bins )
+        break
+        f = partial( GetLikelihood_Full, measure=measure, force=force, **scenario )
+        O = p.map( f, redshift_bins )
+#        O=list(map( f, redshift_bins ))
+#        print( len(O))
+        O=0
 
     for IGMF in models_IGMF:
         tmp = scenario.copy()
         tmp['IGM'] = [IGMF]
-        f = partial( GetLikelihood_Full, measure='RM', **tmp )
-        p.map( f, redshift_bins )
+        f = partial( GetLikelihood_Full, measure='RM', force=force, **tmp )
+        O = p.map( f, redshift_bins )
+#        O = list(map( f, redshift_bins ))
+        print( len(O))
+        O=0
         
     print( "this took %.1f minutes" % ( (time()-t0) / 60 ) )
         

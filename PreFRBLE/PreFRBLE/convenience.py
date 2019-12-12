@@ -19,6 +19,7 @@ def KeyInter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
     return '/'.join( [ 'Intervening', model, '%.4f' % redshift, measure, axis ] )
 
 def KeyIGM( redshift=0.1, model='primordial', typ='far', nside=2**2, measure='DM', axis='P' ):  ## nside=2**6
+    print( model, redshift )
     return '/'.join( [ model, typ, str(nside), measure, '%.4f' % redshift, axis ] )
 
 def KeyRedshift( population='flat', telescope='none', axis='P' ):
@@ -133,6 +134,7 @@ class SimpleFlock:
                raise
             elif self._timeout is not None and time() > (start_lock_search + self._timeout):
                # Exceeded the user-specified timeout.
+               print( "timeout exceeded" ) 
                raise
          
          # TODO It would be nice to avoid an arbitrary sleep here, but spinning
