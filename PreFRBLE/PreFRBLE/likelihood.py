@@ -488,7 +488,6 @@ def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=
     p = Pool( N_processes )
 
     for measure in msrs:
-        break
         f = partial( GetLikelihood_Full, measure=measure, force=force, **scenario )
         O = p.map( f, redshift_bins )
 #        O=list(map( f, redshift_bins ))
@@ -501,7 +500,7 @@ def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=
         f = partial( GetLikelihood_Full, measure='RM', force=force, **tmp )
         O = p.map( f, redshift_bins )
 #        O = list(map( f, redshift_bins ))
-        print( len(O))
+#        print( len(O))
         O=0
         
     print( "this took %.1f minutes" % ( (time()-t0) / 60 ) )
