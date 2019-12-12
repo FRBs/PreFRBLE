@@ -137,6 +137,11 @@ def ScatteringMeasure( density=None, distance=None, redshift=None, outer_scale=N
 
 
 def ScatteringMeasure_ZHU( density=None, redshift=None, dredshift=None, outer_scale=1, omega_baryon=omega_baryon, omega_lambda=omega_lambda, omega_matter=omega_matter, overdensity=False, hubble_constant=hubble_constant/100 ):
+    ## compute scattering measure SM in kpc m^-20/3 (cf. Eq. 4 in Zhu et al. 2018)
+    ### plasma density in g/cm^3
+    ### distance in cm
+    ### outer_scale in pc
+    ### overdensity: set True if density is overdensity
     if overdensity:
         gas_density = 1
     else:

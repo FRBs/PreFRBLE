@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## change this for every iteration
-loop=1
+loop=23
 
 offsets=(    0  4096  8192 12288 16384 20480 24576 28672 32768  36864 40960 45056 )
 span=4096
