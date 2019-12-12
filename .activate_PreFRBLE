@@ -1,0 +1,2 @@
+DIR=$PWD/venv_PreFRBLE
+source $DIR/bin/activate

@@ -4,14 +4,14 @@ from matplotlib.cm import rainbow
 from matplotlib import colors, cm
 
 
-regions = ['MW', 'IGM', 'Inter', 'Host', 'Progenitor']
-linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Progenitor':"-."}
+regions = ['MW', 'IGM', 'Inter', 'Host', 'Local']
+linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Local':"-."}
 
 models_MW = ['JF12']
 models_IGM = ['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd']
 models_Host = ['Rodrigues18/smd', 'Rodrigues18/sfr']
 models_Inter = ['Rodrigues18/smd']
-models_Progenitor = ['Piro18/uniform/Rodrigues18/smd', 'Piro18/uniform/Rodrigues18/sfr', 'Piro18/wind', 'Piro18/wind+SNR']
+models_Local = ['Piro18/uniform/Rodrigues18/smd', 'Piro18/uniform/Rodrigues18/sfr', 'Piro18/wind', 'Piro18/wind+SNR']
 
 
 telescopes = [ 'ASKAP', 'CHIME', 'Parkes' ]  ## names used in PreFRBLE, identical to telescope names
@@ -45,7 +45,7 @@ label = {
 }
 
 
-scale_factor_exponent = { ## used to redshift results of progenitor
+scale_factor_exponent = { ## used to redshift results of local
     'DM' : 1,
     'RM' : 2,
     'SM' : 2,
@@ -66,7 +66,7 @@ likelihood_file = root_likelihood+'observables_likelihood.h5'
 sky_file = root_results+'observables_maps_galaxy.h5'
 frbcat_file = '../frbcat_20191016.csv'
 
-likelihood_file_progenitor = root_likelihood+'observables_likelihood_progenitor.h5'
+likelihood_file_local = root_likelihood+'observables_likelihood_local.h5'
 likelihood_file_galaxy = root_likelihood+'observables_likelihood_galaxy.h5'
 likelihood_file_IGM = root_likelihood+'observables_likelihood_IGM.h5'
 likelihood_file_redshift = root_likelihood+'redshift_likelihood.h5'
@@ -168,7 +168,7 @@ def NInter( z_s=6.,   ## source redshift
 
 
 ## data keys inside likelihood files
-def KeyProgenitor( model='Piro18/wind', measure='DM', axis='P' ):
+def KeyLocal( model='Piro18/wind', measure='DM', axis='P' ):
     return '/'.join( [ model, measure, axis ] )
 
 def KeyMilkyWay( model='JF12', measure='DM', axis='P', redshift=0.0  ):
@@ -186,7 +186,7 @@ def KeyIGM( redshift=0.1, model='primordial', typ='far', nside=2**2, measure='DM
 def KeyRedshift( population='flat', telescope='none', axis='P' ):
     return '/'.join( [ population, telescope, axis] )
 
-#def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Progenitor=['Piro18/uniform_JF12'] ):
+#def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Local=['Piro18/uniform_JF12'] ):
 def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
     models = []
     for region in regions:
@@ -200,7 +200,7 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
     models = np.append( scenario['model_MW'], scenario['model_IGM'] )
     models = np.append( models, scenario['model_Host'] )
     models = np.append( models, scenario['weight_Host'] )
-    models = np.append( models, scenario['model_Progenitor'] )
+    models = np.append( models, scenario['model_Local'] )
     models = np.append( models, [redshift, measure,axis] )
     return '/'.join( models )
 '''
@@ -248,8 +248,8 @@ def GetLikelihood_Redshift( population='SMD', telescope='None' ):
 
 def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure='DM' ):
     with h5.File( likelihood_file_galaxy ) as f:
-        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ].value * (1+redshift)**( 2 - (measure=='DM') )
-        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**( 2 - (measure=='DM') )
+        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
     return P, x
 
 def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
@@ -265,10 +265,10 @@ def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
         x = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='x' ) ].value
     return P, x
 
-def GetLikelihood_Progenitor( redshift=0., model='Piro18/uniform', measure='DM' ):
-    with h5.File( likelihood_file_progenitor ) as f:
-        P = f[ KeyProgenitor( model=model, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
-        x = f[ KeyProgenitor( model=model, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
+def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
+    with h5.File( likelihood_file_local ) as f:
+        P = f[ KeyLocal( model=model, measure=measure, axis='P' ) ].value * (1+redshift)**scale_factor_exponent[measure]
+        x = f[ KeyLocal( model=model, measure=measure, axis='x' ) ].value / (1+redshift)**scale_factor_exponent[measure]
     return P, x
 
 def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
@@ -282,7 +282,7 @@ get_likelihood = {
     'IGM'  :       GetLikelihood_IGM,
     'Inter' :      GetLikelihood_Inter,
     'Host' :       GetLikelihood_Host,
-    'Progenitor' : GetLikelihood_Progenitor,
+    'Local' : GetLikelihood_Local,
     'MilkyWay'   : GetLikelihood_MilkyWay,  
     'MW'         : GetLikelihood_MilkyWay  
 }
@@ -490,7 +490,7 @@ def LabelAddModel( label='', model='' ):
     return label
 
 
-#def LabelScenario( model_Host=[], model_IGM=[], model_Progenitor=[], model_MW=[], weight_Host='' ):
+#def LabelScenario( model_Host=[], model_IGM=[], model_Local=[], model_MW=[], weight_Host='' ):
 def LabelScenario( **scenario ):
     ## returns plotting label of scenario, i. e. set of combined models
     label = ''
@@ -503,7 +503,7 @@ def LabelScenario( **scenario ):
 ''' old and ugly
     label = LabelAddModel( label, scenario['model_IGM'] )
     label = LabelAddModel( label, [ m for m in scenario['model_Host'] ] )
-    label = LabelAddModel( label, scenario['model_Progenitor'] )
+    label = LabelAddModel( label, scenario['model_Local'] )
     label = LabelAddModel( label, scenario['model_MW'] )
     return label[:-6]
 '''
@@ -729,8 +729,8 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, **scenario ):
         P, x = LikelihoodRegion( 'Host', scenario['model_Host'], measure=measure, redshift=redshift, weight=scenario['weight_Host']  )
         Ps.append( P )
         xs.append( x )
-    if len( scenario['model_Progenitor'] ) > 0:
-        P, x = LikelihoodRegion( 'Progenitor', scenario['model_Progenitor'], measure=measure, redshift=redshift  )
+    if len( scenario['model_Local'] ) > 0:
+        P, x = LikelihoodRegion( 'Local', scenario['model_Local'], measure=measure, redshift=redshift  )
         Ps.append( P )
         xs.append( x )
     P, x = ConvolveProbabilities( Ps, xs, absolute= measure == 'RM', shrink=True )
