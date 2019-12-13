@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --job-name=PreFRBLE
+#SBATCH --output=log/batch_PreFRBLE.out
+#SBATCH --mail-user=stefan.hackstein@hs.uni-hamburg.de
+#SBATCH --partition=std
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=12:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-type=END
+#SBATCH --export=NONE
+
+cd $WORK/PreFRBLE
+
+source .activate_PreFRBLE
+
+ipython ComputeFullLikelihoods.py
+
+## PreFRBLE is now updated according to changes in $PACKAGE
+## simply restart jupyter notebook to use new version

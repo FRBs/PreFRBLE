@@ -1,6 +1,4 @@
 ## main working folder
-root = '/work/stuf315/PreFRBLE/'
-root = '/hummel/PreFRBLE/'
 root = '/data/PreFRBLE/'
 
 root_likelihood  = root + 'likelihood/'

@@ -1,4 +1,6 @@
 
+redshift_accuracy = 4 # number deciamls for redshift accuracy  (to prevent numerical misidentification of redshifts)
+
 ## regions along LoS
 regions = ['MW', 'IGM', 'Inter', 'Host', 'Local']
 linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Local':"-."}

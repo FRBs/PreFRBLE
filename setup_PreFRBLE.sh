@@ -1,23 +1,33 @@
 #!/bin/bash
 
+## exit if any command fails
+set -e
+
+## path of thi bash script, should be placed in top folder of PreFRBLE
+BASE_DIR=$(dirname $0)
 
 ## directiories for virtual environment and where source code is found
-DIR=$PWD/venv_PreFRBLE
-PACKAGE=$PWD/PreFRBLE
+DIR=$BASE_DIR/venv_PreFRBLE
+PACKAGE=$BASE_DIR/PreFRBLE
 
+read -p "Are you sure you want to create a new virtual environment? " -n 1 -r
+echo    # (optional) move to a new line
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    ## create directory of virtual environment (delete old version)
+    rm -rf $DIR
+    mkdir $DIR
+    virtualenv -p python3 $DIR
 
-## create directory of virtual environment (delete old version)
-rm -rf $DIR
-mkdir $DIR
-virtualenv -p python3 $DIR
-source $DIR/bin/activate
+    source $DIR/bin/activate
 
-## install python packages used not by PreFRBLE, but by notebooks
-pip install ipython jupyter scipy  
+    ## install python packages used not by PreFRBLE, but by notebooks. If this fails, continue with install_PreFRBLE.sh
+    pip3 install numpy cython ipython jupyter scipy     
+fi
 
-## copy source code to virtual environemnt and install
-cp -r $PACKAGE $DIR
-pip install $DIR/PreFRBLE
+## install PreFRBLE
+bash $BASE_DIR/install_PreFRBLE.sh  
+
 
 ## PreFRBLE can now be used in python within the virtual environment
 ## activate environment by changing into parent folder and execute

@@ -13,14 +13,14 @@ def KeyMilkyWay( model='JF12', measure='DM', axis='P', redshift=0.0  ):
     return '/'.join( [ 'MilkyWay', model, measure, axis ] )
 
 def KeyHost( redshift=0.0, model='Rodrigues18/smd', measure='DM', axis='P' ):
-    return '/'.join( [ 'Host', model, '%.4f' % redshift, measure, axis ] )
+    return '/'.join( [ 'Host', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
 
 def KeyInter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
-    return '/'.join( [ 'Intervening', model, '%.4f' % redshift, measure, axis ] )
+    return '/'.join( [ 'Intervening', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
 
 def KeyIGM( redshift=0.1, model='primordial', typ='far', nside=2**2, measure='DM', axis='P' ):  ## nside=2**6
-    print( model, redshift )
-    return '/'.join( [ model, typ, str(nside), measure, '%.4f' % redshift, axis ] )
+#    print( measure, model, redshift )
+    return '/'.join( [ model, typ, str(nside), measure, '%.4f' % np.round(redshift,4), axis ] )
 
 def KeyRedshift( population='flat', telescope='none', axis='P' ):
     return '/'.join( [ population, telescope, axis] )
@@ -32,7 +32,7 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
         model = scenario.get( region )
         if model:
             models = np.append( models, model )
-    models = np.append( models, [ redshift, measure, axis ] )
+    models = np.append( models, [ np.round( redshift, redshift_accuracy ), measure, axis ] )
     return '/'.join( models )
 
 ''' old, long and ugly version
@@ -59,6 +59,7 @@ def Write2h5( filename='', datas=[], keys=[] ):
     if type(keys) is str:
         sys.exit( 'Write2h5 needs list of datas and keys' )
     with SimpleFlock( 'flock_writeh5', 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
+#    with SimpleFlock( filename, 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
         with h5.File( filename, 'a' ) as f:
             for data, key in zip( datas, keys ):
                 try:

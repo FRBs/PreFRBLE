@@ -204,7 +204,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, **scenario ):
     P, x = LikelihoodsConvolve( Ps, xs, absolute= measure == 'RM' )
     
     ## write to file
-    Write2h5( likelihood_file_Full, [P,x], [ KeyFull( measure=measure, redshift=np.round(redshift,4), axis=axis, **scenario ) for axis in ['P','x']] )
+    Write2h5( likelihood_file_Full, [P,x], [ KeyFull( measure=measure, redshift=redshift, axis=axis, **scenario ) for axis in ['P','x']] )
     
     return P,x
 
@@ -489,20 +489,22 @@ def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=
 
     for measure in msrs:
         f = partial( GetLikelihood_Full, measure=measure, force=force, **scenario )
-        O = p.map( f, redshift_bins )
-#        O=list(map( f, redshift_bins ))
+#        O = p.map( f, redshift_bins )
+        O=list(map( f, redshift_bins ))
 #        print( len(O))
         O=0
+#        p.join()
 
     for IGMF in models_IGMF:
         tmp = scenario.copy()
         tmp['IGM'] = [IGMF]
         f = partial( GetLikelihood_Full, measure='RM', force=force, **tmp )
-        O = p.map( f, redshift_bins )
-#        O = list(map( f, redshift_bins ))
+#        O = p.map( f, redshift_bins )
+        O = list(map( f, redshift_bins ))
 #        print( len(O))
         O=0
-        
+#        p.join()
+    p.close()
     print( "this took %.1f minutes" % ( (time()-t0) / 60 ) )
         
 
