@@ -100,11 +100,16 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
                 continue
             if RM and ( row[i_RM] == 'null' ) :
                 continue
-            FRBs.append( tuple( [ row[i].split('&')[0] for i in i_s ] ) )
-    if print_number:
-        print( len(FRBs) )
+            FRBs.append( tuple( [ decode(row[i].split('&')[0]) for i in i_s ] ) )
     return np.array( FRBs, dtype=FRB_dtype )
 
+
+## short wrapper to decode byte-strings red from FRBcat
+def decode(string, mode='UTF-8'):
+    try:
+        return string.decode( mode )
+    except:
+        return string
 
 
 

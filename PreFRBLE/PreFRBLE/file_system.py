@@ -6,7 +6,7 @@ root_results = root + 'results/'
 
 likelihood_file = root_likelihood+'observables_likelihood.h5'
 sky_file = root_results+'observables_maps_galaxy.h5'
-frbcat_file = '../frbcat_20191016.csv'
+frbcat_file = root+'frbcat.csv'
 
 likelihood_file_local = root_likelihood+'observables_likelihood_local.h5'
 likelihood_file_galaxy = root_likelihood+'observables_likelihood_galaxy.h5'

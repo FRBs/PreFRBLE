@@ -10,7 +10,7 @@ BASE_DIR=$(dirname $0)
 DIR=$BASE_DIR/venv_PreFRBLE
 PACKAGE=$BASE_DIR/PreFRBLE
 
-read -p "Are you sure you want to create a new virtual environment? " -n 1 -r
+read -p "Do you want to create a new virtual environment? " -n 1 -r
 echo    # (optional) move to a new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
@@ -26,7 +26,7 @@ then
 fi
 
 ## install PreFRBLE
-bash $BASE_DIR/install_PreFRBLE.sh  
+bash $BASE_DIR/install_PreFRBLE.sh
 
 
 ## PreFRBLE can now be used in python within the virtual environment
