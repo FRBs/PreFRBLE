@@ -1,3 +1,5 @@
+from PreFRBLE.physics import *
+
 ### provide list of plot labels for models
 
 labels = {
@@ -6,15 +8,15 @@ labels = {
     'astrophysical' : 'astrophysical',
     'astrophysical_mean' : 'astrophysical_mean',
     'astrophysical_median' : 'astrophysical_median',
-    'alpha1-3rd' : r"$\alpha$ = 1/3$",
-    'alpha2-3rd' : r"$\alpha$ = 2/3$",
-    'alpha3-3rd' : r"$\alpha$ = 3/3$",
-    'alpha4-3rd' : r"$\alpha$ = 4/3$",
-    'alpha5-3rd' : r"$\alpha$ = 5/3$",
-    'alpha6-3rd' : r"$\alpha$ = 6/3$",
-    'alpha7-3rd' : r"$\alpha$ = 7/3$",
-    'alpha8-3rd' : r"$\alpha$ = 8/3$",
-    'alpha9-3rd' : r"$\alpha$ = 9/3$",
+    'alpha1-3rd' : r'$\alpha$ = 1/3',
+    'alpha2-3rd' : r"$\alpha$ = 2/3",
+    'alpha3-3rd' : r"$\alpha$ = 3/3",
+    'alpha4-3rd' : r"$\alpha$ = 4/3",
+    'alpha5-3rd' : r"$\alpha$ = 5/3",
+    'alpha6-3rd' : r"$\alpha$ = 6/3",
+    'alpha7-3rd' : r"$\alpha$ = 7/3",
+    'alpha8-3rd' : r"$\alpha$ = 8/3",
+    'alpha9-3rd' : r"$\alpha$ = 9/3",
 
     ### Host
     'JF12/Uniform' : 'Uniform',
@@ -74,3 +76,12 @@ def LabelScenario( **scenario ):
     label = LabelAddModel( label, scenario['model_MW'] )
     return label[:-6]
 '''
+
+
+def UnitLabel( measure='' ):
+    if units[measure] == '':
+        return label_measure[measure]
+    else:
+        return "observed %s / %s" % ( label_measure[measure], units[measure] )
+
+

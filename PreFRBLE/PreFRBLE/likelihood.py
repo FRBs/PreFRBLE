@@ -259,20 +259,45 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
 
 
 
+def LikelihoodMeasureable( P=[], x=[], min=None, max=None ):
+    ### returns the part of full likelihood function above the accuracy of telescopes, renormalized to 1
+    ###  min: minimal value considered to be measurable
+    ###  max: maximal value considered to be measurable
+    if min:
+        ix, = np.where( x >= min )
+        x = x[ix]
+        P = P[ix[:-1]] ## remember, x is range of P, i. e. size+1
+        ## renormalize to 1
+    if max:
+        ix, = np.where( x <= max )
+        x = x[ix]
+        P = P[ix[:-1]] ## remember, x is range of P, i. e. size+1
+        ## renormalize to 1
+    P /= np.sum( P*np.diff(x) )
+    return P, x
 
-def LikelihoodMeasureable( min=1., telescope=None, population=None, **kwargs ):
+
+### do not load Likelhood inside function, pass it instead
+def LikelihoodMeasureable_old( min=None, max=None, telescope=None, population=None, **scenario ):
     ### returns the part of full likelihood function above the accuracy of telescopes, renormalized to 1
     ###  min: minimal value considered to be measurable
     ###  kwargs: for the full likelihood
     ###  telescope: indicate survey of telescope to be predicted (requires population. If None, redshift is required)
     if telescope:
-        P, x = GetLikelihood_Telescope( telescope=telescope, population=population, **kwargs )
+        P, x = GetLikelihood_Telescope( telescope=telescope, population=population, **scenario )
     else:
-        P, x = GetLikelihood_Full( **kwargs )
+        P, x = GetLikelihood_Full( **scenario )
 
-    ix, = np.where( x >= min )
-    x = x[ix]
-    P = P[ix[:-1]] ## remember, x is range of P
+    if min:
+        ix, = np.where( x >= min )
+        x = x[ix]
+        P = P[ix[:-1]] ## remember, x is range of P, i. e. size+1
+        ## renormalize to 1
+    if max:
+        ix, = np.where( x <= max )
+        x = x[ix]
+        P = P[ix[:-1]] ## remember, x is range of P, i. e. size+1
+        ## renormalize to 1
     P /= np.sum( P*np.diff(x) )
     return P, x
 
@@ -289,20 +314,20 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
     ## for each redshift
     for iz, z in enumerate( redshift_bins ):
         ## calculate the likelihood of observed DM 
-        Ps[:,iz] = Likelihoods( DMs, *GetLikelihood_Full( typ='DM', redshift=z, density=True, **scenario) ) 
+        Ps[:,iz] = Likelihoods( DMs, *GetLikelihood_Full( measure='DM', redshift=z, density=True, **scenario) ) 
     
     ## improve redshift estimate with additional information from tau, which is more sensitive to high overdensities in the LoS
     ## procedure is identical, the likelihood functions are multiplied
     if taus is not None:
         Ps_ = np.zeros( [len(DMs),len(redshift_bins)] )
         for iz, z in enumerate(redshift_bins):
-            Ps_[:,iz] = Likelihoods( taus, *GetLikelihood_Full( typ='tau', redshift=z, density=True, **scenario) )  ### not all tau are measureable. However, here we compare different redshifts in the same scenario, so the amount of tau above tau_min is indeed important and does not affect the likelihood of scenarios. Instead, using LikelihoodObservable here would result in wrong estimates.
+            Ps_[:,iz] = Likelihoods( taus, *GetLikelihood_Full( measure='tau', redshift=z, density=True, **scenario) )  ### not all tau are measureable. However, here we compare different redshifts in the same scenario, so the amount of tau above tau_min is indeed important and does not affect the likelihood of scenarios. Instead, using LikelihoodObservable here would result in wrong estimates.
         Ps *= Ps_
         Ps_= 0
     
     ## consider prior likelihood on redshift according to FRB population and telescope selection effects 
     if population == 'flat':
-        pi = np.array([1.])
+        pi, x = np.array([1.]), np.arange(2)
     else:
         pi, x = GetLikelihood_Redshift( population=population, telescope=telescope )
     Ps = Ps * np.resize( pi*np.diff(x), [1,len(redshift_bins)] )
@@ -312,11 +337,11 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
 
     return Ps, redshift_range
 
-def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior_BO=1., population='flat', telescope='None' ):
+def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., population='flat', telescope='None' ):
     ### compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
     ###  DMs, RMs, taus: 1D arrays of identical size, contain extragalactic component of observed values
     ###  scenario: dictionary of models combined to one scenario
-    ###  prior_B0: prior attributed to IGMF model, scalar or 1D array with size identical to DMs
+    ###  prior: prior attributed to scenario
     ###  population: assumed cosmic population of FRBs
     ###  telescope: in action to observe DMs, RMs and taus
 
@@ -327,17 +352,22 @@ def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior_BO=1., pop
     P_redshifts_DMs, redshift_range = LikelihoodRedshift( DMs=DMs, scenario=scenario, taus=taus, population=population, telescope=telescope )
     
     ## for each possible source redshift
-    for redshift, P_redshift in zip( redshift_bins, P_redshifts_DMs.transpose() ):
+    for redshift, P_redshift, dredshift in zip( redshift_bins, P_redshifts_DMs.transpose(), np.diff(redshift_range) ):
         ## estimate likelihood of scenario based on RM, using the redshift likelihood as a prior
         ##  sum results of all possible redshifts
-        P, x = LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario )
-        result += prior_BO * P_redshift * Likelihoods( measurements=RMs, P=P, x=x )
+        P, x = GetLikelihood_Full( measure='RM', **scenario )
+        P, x = LikelihoodMeasureable( x=x, P=P, min=RM_min )
+#        P, x = LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario )
+#        res = P_redshift*dredshift * Likelihoods( measurements=RMs, P=P, x=x )
+#        print( res)
+#        result += res
+        result += P_redshift*dredshift * Likelihoods( measurements=RMs, P=P, x=x )
  
-    return result
+    return result * prior
 
 
 
-def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, population='flat', telescope='None' ):
+def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, population='flat', telescope='None', which_NaN=False ):
     ### for set of observed tuples of DM, RM (and tau), compute total Bayes factor that quantifies corroboration towards scenario1 above scenario2 
     ### first computes the Bayes factor = ratio of likelihoods for each tuple, then computes the product of all bayes factors
     ###  DMs, RMs, taus: 1D arrays of identical size, contain extragalactic component of observed values
@@ -346,7 +376,15 @@ def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, 
     ###  telescope: in action to observe DMs, RMs and taus
     L1 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus )
     L2 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus )
-    return np.prod(L1/L2)
+    result =  np.prod(L1/L2)
+    NaN = np.isnan(result)
+    if np.any(NaN):
+        print( "%i of %i returned NaN. Ignore in final result" %( np.sum(NaN), len(DMs) ) )
+        if which_NaN:
+            ix, = np.where( NaN )
+            print(ix)
+        return np.nanprod( L1/L2 )
+    return result
 #    return np.prod( LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus ) / LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus ) )
 
 
@@ -381,51 +419,35 @@ def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=Tru
 def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False ):
     if redshift < 0.1:
         typ='near'
-    if measure == 'DM':
-        model='primordial'
     with h5.File( likelihood_file_IGM, 'r' ) as f:
-        P = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='P' ) ][()]
-        x = f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis='x' ) ][()]
-    return P, x
+         return [f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
 
 
 
 def GetLikelihood_Redshift( population='SMD', telescope='None' ):
     with h5.File( likelihood_file_redshift, 'r' ) as f:
-        P = f[ KeyRedshift( population=population, telescope=telescope, axis='P' ) ][()]
-        x = f[ KeyRedshift( population=population, telescope=telescope, axis='x' ) ][()]
-    return P, x
+        return [ f[ KeyRedshift( population=population, telescope=telescope, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
 def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyHost( model=model, weight=weight, measure=measure, axis='P' ) ][()] * (1+redshift)**scale_factor_exponent[measure]
-        x = f[ KeyHost( model=model, weight=weight, measure=measure, axis='x' ) ][()] / (1+redshift)**scale_factor_exponent[measure]
-    return P, x
+        return [ f[ KeyHost( model=model, weight=weight, measure=measure, axis=axis ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
 
 def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='P' ) ][()]
-        x = f[ KeyHost( model=model, redshift=redshift, measure=measure, axis='x' ) ][()]
-    return P, x
+        return [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
 
 def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='P' ) ][()]
-        x = f[ KeyInter( redshift=redshift, model=model, measure=measure, axis='x' ) ][()]
-    return P, x
+        return [ f[ KeyInter( redshift=redshift, model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
 def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
     with h5.File( likelihood_file_local, 'r' ) as f:
-        P = f[ KeyLocal( model=model, measure=measure, axis='P' ) ][()] * (1+redshift)**scale_factor_exponent[measure]
-        x = f[ KeyLocal( model=model, measure=measure, axis='x' ) ][()] / (1+redshift)**scale_factor_exponent[measure]
-    return P, x
+        return [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
 
 def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        P = f[ KeyMilkyWay( model=model, measure=measure, axis='P' ) ][()]
-        x = f[ KeyMilkyWay( model=model, measure=measure, axis='x' ) ][()]
-    return P, x
+        return [ f[ KeyMilkyWay( model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
 
 get_likelihood = {
@@ -450,13 +472,12 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
 
     if len(scenario) == 1:
         region, model = scenario.copy().popitem()
-        return GetLikelihood( region=region, model=model, redshift=redshift, measure=measure )
+#        print('only %s' % model[0], end=' ' )
+        return GetLikelihood( region=region, model=model[0], redshift=redshift, measure=measure )
     if not force:
         try:
             with h5.File( likelihood_file_Full, 'r' ) as f:
-                P = f[ KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) ][()]
-                x = f[ KeyFull( measure=measure, axis='x', redshift=redshift, **scenario ) ][()]
-                return P, x
+                return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) ][()] for axis in ['P', 'x'] ]
         except:
             pass
     return LikelihoodFull( measure=measure, redshift=redshift, **scenario )
@@ -464,10 +485,8 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
 def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, **scenario ):
     if not force:
         try:
-            with h5.File( likelihood_file_Full, 'r' ) as f:
-                P = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', **scenario ) ][()]
-                x = f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis='x', **scenario ) ][()]
-            return P, x
+            with h5.File( likelihood_file_telescope, 'r' ) as f:
+                return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, **scenario ) ][()] for axis in ['P', 'x'] ]
         except:
             pass
     return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, **scenario )

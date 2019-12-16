@@ -8,13 +8,35 @@ from PreFRBLE.likelihood import *
 #from PreFRBLE.parameter import *
 
 ## Convenient Plot functions
+def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, color='blue', show_values=False, ax=None ):
+    if ax is None:
+        fig, ax = plt.subplots( )
+    ax.bar(x, y/y.max(), width, color=color )
+    ax.set_title( title )
+    ax.set_yscale('log')
+    ax.set_xlabel( label )
+    ax.set_ylabel(r"$\mathcal{B}/\mathcal{B}_{\rm max}$")
+    if show_values: ## print value on top of each bar, .... doesnt work ...
+        shift = y.max()/y.min()/10
+        for xx, yy in zip( x, y ):
+            ax.text( xx, yy*shift, str(yy), color=color, fontweight='bold' )
+
+    ### assure that there are ticks at y axis
+    lim = ax.get_ylim()
+    ax.set_ylim(lim[0]*0.5, lim[1]*2)
+
+
+
+
 def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
     if cumulative:
         density = False
     if ax is None:
         fig, ax = plt.subplots( )
     xx = x[:-1] + np.diff(x)/2
-    PP = P * np.diff(x)**(not density) * xx**density
+    PP = P.copy()
+    if log:  ## the probability for a measure to fall in bin depends on size of bin, for logarithmically scaled function, this changes, hence multiply by size of bin
+        PP *= np.diff(x)**(not density) * xx**density
     if cumulative:
         PP = np.cumsum( PP )
     if log:
@@ -22,13 +44,41 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
     ax.plot( xx, PP, **kwargs)
 
     if measure is not None:
-        ax.set_xlabel( 'observed %s / %s' % ( label_measure[measure], units[measure] ), fontdict={'size':16 } )
+        ax.set_xlabel( UnitLabel( measure ) , fontdict={'size':16 } )
         ylabel = ( r"P(%s)" % label_measure[measure] ) 
-        ylabel += ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] )
+        if log:
+            ylabel += ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] )
         ax.set_ylabel( ylabel, fontdict={'size':18 } )
 #        ax.set_ylabel( ( r"P(%s)" % label_measure[measure] ) + ( ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] ) ), fontdict={'size':18 } )
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
+
+def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, **kwargs ):
+    if ax is None:
+        fig, ax = plt.subplots()
+    for z, color in zip( redshift_bins, rainbow(redshift_bins) ):
+        P, x = GetLikelihood_Full( redshift=z, measure=measure, **scenario )
+        if measureable:
+            P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
+        PlotLikelihood(P=P, x=x, ax=ax, measure=measure, color=color, **kwargs )
+    Colorbar( redshift_bins, label='redshift', ax=ax)
+
+
+def PlotAverageEstimate( measure='DM', ax=None, scenario={}, **kwargs ):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    avg, std = [], []
+    for iz, (redshift, color) in enumerate( zip(redshift_bins, Rainbow(redshift_bins)) ):
+        P, x = GetLikelihood_Full( measure=measure, redshift=redshift, **scenario )
+        a, s = Likelihood2Expectation( P=P, x=x, density=True, log=True )
+        avg.append(a)
+        std.append(s)
+    ax.errorbar( redshift_bins, avg, avg - 10**(np.log10(avg)-std), **kwargs ) 
+    ax.set_yscale('log')
+    ax.set_xlabel('redshift', fontdict={'size':16 })
+    ax.set_ylabel('%s / %s' % (label_measure[measure], units[measure]), fontdict={'size':16 } )
+
 
 def PlotTelescope( measure='DM', telescope='Parkes', population='SMD', ax=None, label=None, scenario={}, **kwargs ):
     ### Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
@@ -60,10 +110,16 @@ def Colorbar( x=np.linspace(0,1,2), label=None, labelsize=16, cmap=rainbow, ax=N
     if label is not None:
         cb.set_label(label=label, size=labelsize)
 
-def Rainbow( x=np.linspace(0,1,2) ):
+def Rainbow( x=np.linspace(0,1,2), min=None, max=None ):
     ### return rainbow colors for 1D array x
-    x_ = x - x.min()
-    x_ /= x_.max()
+    if min is None:
+        min = x.min()
+    if max is None:
+        max = x.max()-min
+    else:
+        max -= min
+    x_ = x - min
+    x_ /= max
     return rainbow( x_ )
 
 

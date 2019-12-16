@@ -1,4 +1,7 @@
 import numpy as np
+from PreFRBLE.likelihood import LikelihoodMeasureable, GetLikelihood_Full, GetLikelihood_Telescope, GetLikelihood_Redshift, Likelihoods
+from PreFRBLE.physics import measure_range
+
 
 ## sample distributions
 
@@ -26,14 +29,44 @@ def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
     return res[:N]
 
 
-def FakeFRBs( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', **scenario):
+
+def FakeFRBs( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', measureable=True, **scenario):
     ### returns measures of a fake survey of N FRBs expected to be observed by telescope assuming population & scenario for LoS
+    FRBs = { 'redshift':np.array([])}
+    for m in measures:
+        FRBs[m] = np.array([])
+    ## determine how many FRBs expected per redshift bin
+    P, zs = GetLikelihood_Redshift( population=population, telescope=telescope )
+
+#    P = 1./(zs[-1]-zs[0])  ### !!! REMOVE, used to test validity of results at all redshifts
+
+    N_z = np.round( N*P*np.diff(zs) ).astype('i')
+
+    ## sample measures for each bin
+    for redshift, Nz in zip( zs[1:], N_z ):
+        FRBs['redshift'] = np.append( FRBs['redshift'], np.round( redshift*np.ones(Nz), 2 ) )
+        for measure in measures:
+            P, x = GetLikelihood_Full( measure=measure, redshift=redshift, **scenario )
+            if measureable:
+                P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
+            FRBs[measure] = np.append( FRBs[measure], RandomSample( Nz, P, x ) )
+    
+    return FRBs
+
+
+### !!! MEASURES DON'T CARE FOR SOURCE REDSHIFT, WORTHLESS !!! ###
+def FakeFRBs_old( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', **scenario):
+    ### returns measures of a fake survey of N FRBs expected to be observed by telescope assuming population & scenario for LoS
+
+
     FRBs = {}
     for measure in measures:
         ## load likelihood function 
         if measure == 'RM':
             ## due to the ionosphere foreground, only allow for RM > 1 rad m^-2 to be observed
-            P, x = LikelihoodMeasureable( min=RM_min, measure=measure, telescope=telescope, population=population, **scenario )
+            P, x = GetLikelihood_Telescope( telescope=telescope, population=population, **scenario )
+            P, x = LikelihoodMeasureable( x=x, P=P, min=RM_min )
+#            P, x = LikelihoodMeasureable( min=RM_min, measure=measure, telescope=telescope, population=population, **scenario )
         else:
             P, x = GetLikelihood_Telescope( measure=measure, telescope=telescope, population=population, **scenario )
     

@@ -5,6 +5,24 @@ from PreFRBLE.file_system import *
 from PreFRBLE.parameter import *
 
 
+
+def CorrectScenario( measure='DM', **scenario ):
+    ## this function is used to correct scenario keys wenn reading data, since some models have output stored under different name
+    
+    result = scenario.copy()
+    
+    ## combine primordial and alpha results, former for DM, SM and tau, latter for RM (is identical to primordial, which was also computed)
+    if 'RM' in measure:
+        pass
+    ## rhis is not needed right now
+    #    if scenario['IGM'] == ['primordial']:
+    #        result['IGM'] = ['alpha1-3rd']
+    else:
+        if 'alpha' in scenario['IGM'][0]:
+            result['IGM'] = ['primordial']
+    return result
+
+
 ## data keys inside likelihood files
 def KeyLocal( model='Piro18/wind', measure='DM', axis='P' ):
     return '/'.join( [ model, measure, axis ] )
@@ -20,16 +38,19 @@ def KeyInter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
 
 def KeyIGM( redshift=0.1, model='primordial', typ='far', nside=2**2, measure='DM', axis='P' ):  ## nside=2**6
 #    print( measure, model, redshift )
-    return '/'.join( [ model, typ, str(nside), measure, '%.4f' % np.round(redshift,4), axis ] )
+    model_ = CorrectScenario( measure=measure, IGM=[model] )['IGM'][0]
+#    print(model_)
+    return '/'.join( [ model_, typ, str(nside), measure, '%.4f' % np.round( redshift, redshift_accuracy ), axis ] )
 
 def KeyRedshift( population='flat', telescope='none', axis='P' ):
     return '/'.join( [ population, telescope, axis] )
 
 #def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Local=['Piro18/uniform_JF12'] ):
 def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
+    scenario_ = CorrectScenario( measure, **scenario )
     models = []
     for region in regions:
-        model = scenario.get( region )
+        model = scenario_.get( region )
         if model:
             models = np.append( models, model )
     models = np.append( models, [ np.round( redshift, redshift_accuracy ), measure, axis ] )
@@ -45,9 +66,10 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
 '''
 
 def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', **scenario ):
+    scenario_ = CorrectScenario( measure, **scenario )
     models = [ telescope, population ]
     for region in regions:
-        model = scenario.get( region )
+        model = scenario_.get( region )
         if model:
             models = np.append( models, model )
     models = np.append( models, [ measure, axis ] )
@@ -73,9 +95,10 @@ def Write2h5( filename='', datas=[], keys=[] ):
 ## Read FRBcat
 
 #FRB_dtype = [('ID','S'),('DM','f'),('DM_gal','f'), ('RM','f'),('tau','f'),('host_redshift','S'), ('tele','S')]
-FRB_dtype = [('ID','S9'),('DM','f'),('DM_gal','f'), ('RM','S10'),('tau','S10'),('host_redshift','S4'), ('tele','S10')]
+#FRB_dtype = [('ID','U9'),('DM','f'),('DM_gal','f'), ('RM','U10'),('tau','U10'),('host_redshift','U4'), ('tele','U10')]
+FRB_dtype = [('ID','U9'),('DM','f'),('DM_gal','f'), ('RM','f'),('tau','f'),('host_redshift','f'), ('tele','U10')]
 
-def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
+def GetFRBcat( telescopes=None, RM=None, tau=None, print_number=False ):
     ### read all FRBs from FRBcat
     ###  optional: read only those FRBs observed by telescope with RM and tau
     ###  print_number:True print number of extracted FRBs 
@@ -94,22 +117,23 @@ def GetFRBcat( telescope=None, RM=None, tau=None, print_number=False ):
         i_tele = np.where( header == 'telescope' )[0][0]
         i_s = [i_ID, i_DM, i_DM_gal, i_RM, i_tau, i_zs, i_tele]  ## order must fit order of FRB_dtype
         for row in reader:
-            if telescope and ( row[i_tele] != telescope_FRBcat[telescope] ) :
+            if telescopes and ( row[i_tele] not in [telescopes_FRBcat[tele] for tele in telescopes] ) :
                 continue
             if tau and ( row[i_tau] == 'null' ) :
                 continue
             if RM and ( row[i_RM] == 'null' ) :
                 continue
-            FRBs.append( tuple( [ decode(row[i].split('&')[0]) for i in i_s ] ) )
+            FRBs.append( tuple( [ decode(row[i].split('&')[0], dtype) for i, dtype in zip( i_s, np.array(FRB_dtype)[:,1] ) ] ) )
     return np.array( FRBs, dtype=FRB_dtype )
 
 
-## short wrapper to decode byte-strings red from FRBcat
-def decode(string, mode='UTF-8'):
-    try:
-        return string.decode( mode )
-    except:
-        return string
+## short wrapper to decode byte-strings read from FRBcat
+def decode( string, dtype='U' ):
+    if 'f' in dtype:
+        if 'null' in string:
+            return float('NaN')
+        return float(string)
+    return string
 
 
 

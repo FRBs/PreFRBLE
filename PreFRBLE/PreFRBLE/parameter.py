@@ -16,13 +16,13 @@ models_Local = ['Piro18/uniform/Rodrigues18/smd', 'Piro18/uniform/Rodrigues18/sf
 
 ## telescopes and cosmic population scenarios
 telescopes = [ 'ASKAP', 'CHIME', 'Parkes' ]  ## names used in PreFRBLE, identical to telescope names
-populations = [ 'SMD', 'SFR', 'coV' ]
+populations = [ 'SFR', 'coV', 'SMD' ]
 colors_telescope = ['blue','orange','green']
 linestyles_population = ['-','--',':']
 
 ## names used in FRBpoppy
 telescopes_FRBpoppy = { 'ASKAP':'askap-fly', 'CHIME':'chime', 'Parkes':'parkes' }
-telescopes_FRBcat = { 'ASKAP':b'ASKAP', 'CHIME':b'CHIME/FRB', 'Parkes':b'parkes' }
+telescopes_FRBcat = { 'ASKAP':'ASKAP', 'CHIME':'CHIME/FRB', 'Parkes':'parkes' }
 populations_FRBpoppy = { 'SFR':'sfr', 'SMD':'smd', 'coV':'vol_co' }
 
 

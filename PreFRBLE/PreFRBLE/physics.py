@@ -19,8 +19,14 @@ units = {
     'RM'       :r"rad m$^{-2}$",
     'SM'       :r"kpc m$^{-20/3}$",
     'tau'      :"ms",
-    'z'        :r"z",
+    'z'        :r"",
     'redshift' :r"1+z",
+}
+
+measure_range = {
+    'DM'       : (None, None),
+    'RM'       : (RM_min, None),
+    'tau'      : (tau_min, tau_max)
 }
 
 label_measure = {
