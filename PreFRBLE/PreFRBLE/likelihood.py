@@ -26,7 +26,7 @@ def histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False
 
 
 
-def Likelihoods( measurements=[], P=[], x=[], minimal_likelihood=1e-9 ):
+def Likelihoods( measurements=[], P=[], x=[], minimal_likelihood=0 ):
     ## returns likelihoods for given measurements according to likelihood function given by P and x
     ## minimal_likelihood is returned for values outside the range of x
 
@@ -332,8 +332,12 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
         pi, x = GetLikelihood_Redshift( population=population, telescope=telescope )
     Ps = Ps * np.resize( pi*np.diff(x), [1,len(redshift_bins)] )
                     
-    ## renormalize to 1 for every DM
-    Ps = Ps / np.resize( np.sum( Ps * np.resize( np.diff( redshift_range ), [1,len(redshift_bins)] ), axis=1 ), [len(DMs),1] )
+    ## renormalize to 1 for every DM (only if any P is not zero)
+    for P in Ps:
+        if np.any( P > 0):
+            P /= np.sum( P*np.diff( redshift_range ) )
+
+#    Ps = Ps / np.resize( np.sum( Ps * np.resize( np.diff( redshift_range ), [1,len(redshift_bins)] ), axis=1 ), [len(DMs),1] )
 
     return Ps, redshift_range
 
@@ -388,10 +392,12 @@ def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, 
 #    return np.prod( LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus ) / LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus ) )
 
 
-def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True ):      ## mean works, std is slightly too high???
+def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True, sigma=1, std_nan=np.nan ):
     ### computes the estimate value and deviation from likelihood function (must be normalized to 1)
+    ###  deviation is given such to easily work with plt.errorbar
     ###  log: indicates, whether x is log-scaled
     ###  density: indicates whether P is probability density, should always be true
+    ###  std_nan: value returned in case that P=0 everywhere. if not NaN, should reflect upper limit
     if log:
         x_log = np.log10(x)
         x_ = x_log[:-1] + np.diff(x_log)/2
@@ -403,13 +409,26 @@ def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=Tru
     else:
         P_ = P
     if np.round( np.sum( P_ ), 2) != 1:
+        if np.all(P_ == 0):
+            return std_nan #, [std_nan,std_nan]
         sys.exit( 'P is not normalized' )
     
+    ## mean is probabilty weighted sum of possible values
     x_mean = np.sum( x_*P_ )
-    x_std = np.sqrt( np.sum( P_ * ( x_ - x_mean)**2 ) )
     if log:
         x_mean = 10.**x_mean
-    return x_mean, x_std
+
+    ## exactly compute sigma range
+    P_cum = np.cumsum( P_ )
+    lo =   x_mean - first( zip(x, P_cum), condition= lambda x: x[1] > 0.5*(1-sigma_probability[sigma]) )[0]
+    hi = - x_mean + first( zip(x[1:], P_cum), condition= lambda x: x[1] > 1- 0.5*(1-sigma_probability[sigma]) )[0]
+    
+    ## if z is clearly within one bin, hi drops negative value
+    #hi = np.abs(hi)
+
+#    x_std = np.sqrt( np.sum( P_ * ( x_ - x_mean)**2 ) ) ### only works for gaussian, so never
+
+    return x_mean, np.array([lo,hi]).reshape([2,1])
 
 
 

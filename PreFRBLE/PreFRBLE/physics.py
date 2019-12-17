@@ -47,6 +47,14 @@ scale_factor_exponent = { ## used to redshift results of local
 }
 
 
+sigma_probability = {
+    1: 0.682689492,
+    2: 0.954499736,
+    3: 0.997300204,
+    4: 0.99993666,
+    5: 0.999999427
+}
+
 
 ## physical constants                                                                                                          
 omega_baryon       = 0.048

@@ -18,8 +18,8 @@ def CorrectScenario( measure='DM', **scenario ):
     #    if scenario['IGM'] == ['primordial']:
     #        result['IGM'] = ['alpha1-3rd']
     else:
-        if 'alpha' in scenario['IGM'][0]:
-            result['IGM'] = ['primordial']
+        if 'IGM' in scenario and 'alpha' in scenario['IGM'][0]:
+                result['IGM'] = ['primordial']
     return result
 
 
@@ -137,6 +137,10 @@ def decode( string, dtype='U' ):
 
 
 
+def GetEstimatedRedshifts( ):
+    """ obtain redshift estimates written to npy file """
+    return np.genfromtxt( file_estimated_redshifts_DM, dtype=None, delimiter=',', names=True)
+
 
 ## flocker to keep parallel processes from writing to same file simultaneously
 ## provided by derpston, https://github.com/derpston/python-simpleflock/blob/master/src/simpleflock.py#L14
@@ -197,4 +201,26 @@ with SimpleFlock("locktest", 2):  ## "locktest" is a temporary file that tells w
 '''
 
 
+
+def first(iterable, condition = lambda x: True):
+    """
+    Returns the first item in the `iterable` that satisfies the `condition`.
+    If the condition is not given, returns the first item of the iterable.
+    Raises `StopIteration` if no item satysfing the condition is found.
+
+    >>> first( (1,2,3), condition=lambda x: x % 2 == 0)
+    2
+    >>> first(range(3, 100))
+    3
+    >>> first( () )
+    Traceback (most recent call last):
+    ...
+    StopIteration
+    
+    THANKS TO Caridorc
+    https://stackoverflow.com/questions/2361426/get-the-first-item-from-an-iterable-that-matches-a-condition
+    
+    """
+
+    return next(x for x in iterable if condition(x))
 

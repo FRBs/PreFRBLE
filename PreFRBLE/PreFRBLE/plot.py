@@ -53,18 +53,19 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
-def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, **kwargs ):
+def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, **kwargs ):
     if ax is None:
         fig, ax = plt.subplots()
-    for z, color in zip( redshift_bins, rainbow(redshift_bins) ):
+    for z, color in zip( redshift_bins, rainbow(redshift_bins/redshift_bins.max()) ):
         P, x = GetLikelihood_Full( redshift=z, measure=measure, **scenario )
         if measureable:
             P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
         PlotLikelihood(P=P, x=x, ax=ax, measure=measure, color=color, **kwargs )
-    Colorbar( redshift_bins, label='redshift', ax=ax)
+    if colorbar:
+        Colorbar( redshift_bins, label='redshift', ax=ax)
 
 
-def PlotAverageEstimate( measure='DM', ax=None, scenario={}, **kwargs ):
+def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwargs ):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -74,10 +75,48 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, **kwargs ):
         a, s = Likelihood2Expectation( P=P, x=x, density=True, log=True )
         avg.append(a)
         std.append(s)
-    ax.errorbar( redshift_bins, avg, avg - 10**(np.log10(avg)-std), **kwargs ) 
+    ## plot arrorbars, starting at the indicated position
+    erb = ax.errorbar( redshift_bins[errorstart:], avg[errorstart:], np.array(std).reshape([len(avg),2])[errorstart:].transpose(), **kwargs ) 
+    ## draw the full line with the same kwargs
+    kwargs_ = kwargs.copy()
+    ## however, remove those kwargs that do not work with plt.plot
+    for key in ['errorevery', 'label']:
+        kwargs_.pop( key, 0 )
+    ## if color is not set, ensure that same color is used as for errorbar
+    if 'color' not in kwargs:
+        lines, collection = erb.get_children()
+        color = lines.get_color()
+        kwargs_['color'] = color
+    ax.plot( redshift_bins, avg, **kwargs_ )
+#    ax.errorbar( redshift_bins, avg, avg - 10**(np.log10(avg)-std), **kwargs ) 
     ax.set_yscale('log')
     ax.set_xlabel('redshift', fontdict={'size':16 })
     ax.set_ylabel('%s / %s' % (label_measure[measure], units[measure]), fontdict={'size':16 } )
+
+
+
+def RedshiftEstimate( DM=0, ax=None, telescope='Parkes', population='SMD', scenario={}, plot=False, **kwargs ):
+    Ps, z = LikelihoodRedshift( DMs=[DM], population=population, telescope=telescope, scenario=scenario )
+    est, dev = Likelihood2Expectation( x=z, P=Ps[0], log=False, density=True, std_nan=( 0.05, np.array([0.05,0.05]).reshape([2,1]) ) )
+    if plot and not np.isnan(est):
+        if ax is None:
+            fig, ax = plt.subplots()
+        PlotLikelihood(x=z, P=Ps[0], measure='z', ax=ax, **kwargs)
+        ax.errorbar( est, 0.1*(Ps[0]*np.diff(z)).max(), xerr=dev, marker='x', markersize=4, markeredgewidth=2 )
+    
+        ax.set_title('redshift estimate')
+        ax.set_xscale('linear')
+    return est, dev
+    
+def RedshiftEstimates( DM=0, ax=None, telescope='Parkes', scenario={}, plot=False, **kwargs ):
+    if plot and ax is None:
+        fig, ax = plt.subplots()
+    ests, devs = [], []
+    for population, linestyle in zip( populations, linestyles_population ):
+        est, dev = RedshiftEstimate( DM, ax=ax, telescope=telescope, population=population, scenario=scenario, linestyle=linestyle, plot=plot, **kwargs)
+        ests.append(est)
+        devs.append(dev)
+    return ests, devs
 
 
 def PlotTelescope( measure='DM', telescope='Parkes', population='SMD', ax=None, label=None, scenario={}, **kwargs ):
