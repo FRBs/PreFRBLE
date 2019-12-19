@@ -139,7 +139,7 @@ def decode( string, dtype='U' ):
 
 def GetEstimatedRedshifts( ):
     """ obtain redshift estimates written to npy file """
-    return np.genfromtxt( file_estimated_redshifts_DM, dtype=None, delimiter=',', names=True)
+    return np.genfromtxt( file_estimated_redshifts_DM, dtype=None, delimiter=',', names=True, encoding='UTF-8')
 
 
 ## flocker to keep parallel processes from writing to same file simultaneously

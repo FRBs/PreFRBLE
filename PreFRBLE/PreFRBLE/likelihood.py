@@ -26,12 +26,32 @@ def histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False
 
 
 
-def Likelihoods( measurements=[], P=[], x=[], minimal_likelihood=0 ):
-    ## returns likelihoods for given measurements according to likelihood function given by P and x
-    ## minimal_likelihood is returned for values outside the range of x
+def Likelihoods( measurements=[], P=[], x=[], minimal_likelihood=0. ):
+    """
+    returns likelihoods for given measurements according to likelihood function given by P and x
 
-    Ps = np.zeros( len( measurements ) ) ## collector for probabilities of measurements
-    dx = np.diff(x)
+
+    Parameters
+    ---------
+    measurements : array_like
+        measurements for which the likelihood shall be returned
+    P : array_like, shape(N)
+        likelihood function
+    x : array_like, shape(N+1)
+        range of bins in likelihood function
+    minimal_likelihood : float
+        value returned in case that measurement is outside x
+
+    Returns
+    -------
+    likelihoods: numpy array, shape( len(measurements) )
+        likelihood of measurements = value of P*dx for bin, where measurement is found
+    """
+
+
+
+    likelihoods = np.zeros( len( measurements ) ) ## collector for likelihoods of measurements
+    Pdx = P*np.diff(x)  ## probability for obtaining measure from within bin
     isort = np.argsort( measurements )   ## sorted order of measurements
     i = 0  ## marker for current bin
     ## for each measurement (in ascending order)
@@ -45,13 +65,14 @@ def Likelihoods( measurements=[], P=[], x=[], minimal_likelihood=0 ):
                 continue
             else:        ## otherwise, measure is in the bin
                 ## put result in correct place and stop checking bins
-                Ps[i_s] = P[i-1]  if i > 0 else minimal_likelihood  ## if that was the lowest bound, probability is ->zero if measurement is outside the range of P, i. e. P~0
+                likelihoods[i_s] = Pdx[i-1]  if i > 0 else minimal_likelihood  ## if that was the lowest bound, probability is ->zero if measurement is outside the range of P, i. e. P~0
                 break    ## continue with the next measurement
         else:
             ## if measure is bigger than the last bin
-            Ps[i_s] = minimal_likelihood  ## probability is zero if measurement is outside the range of P, i. e. P~0
+            likelihoods[i_s] = minimal_likelihood  ## probability is zero if measurement is outside the range of P, i. e. P~0
     
-    return np.array( Ps )
+    likelihoods = np.array( likelihoods )
+    return likelihoods
 
 
 def LikelihoodsAdd( Ps=[], xs=[], log=True, shrink=False, weights=None, renormalize=False ):
@@ -393,11 +414,34 @@ def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, 
 
 
 def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True, sigma=1, std_nan=np.nan ):
-    ### computes the estimate value and deviation from likelihood function (must be normalized to 1)
-    ###  deviation is given such to easily work with plt.errorbar
-    ###  log: indicates, whether x is log-scaled
-    ###  density: indicates whether P is probability density, should always be true
-    ###  std_nan: value returned in case that P=0 everywhere. if not NaN, should reflect upper limit
+    """
+    computes the estimate value and deviation from likelihood function P (must be normalized to 1)
+
+
+    Paraeters
+    --------
+    P : array_like, shape(N)
+        likelihood function
+    x : array_like, shape(N+1)
+        range of bins in likelihood function
+    log : boolean
+        indicates, whether x is log-scaled
+    density : boolean
+        indicates whether P is probability density, should always be true
+    sigma : integer
+        indicates the sigma range to be returned. must be contained in sigma_probability in physics.py
+    std_nan
+        value returned in case that P=0 everywhere. if not NaN, should reflect upper limit
+
+    Returns
+    -------
+    expect: float
+        expectation value of likelihood function
+    deviation: numpy_array, shape(1,2)
+        lower and uppper bound of sigma standard deviation width
+        is given such to easily work with plt.errorbar( 1, expect, deviation )
+
+    """
     if log:
         x_log = np.log10(x)
         x_ = x_log[:-1] + np.diff(x_log)/2
@@ -414,22 +458,29 @@ def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=Tru
         sys.exit( 'P is not normalized' )
     
     ## mean is probabilty weighted sum of possible values
-    x_mean = np.sum( x_*P_ )
+    expect = np.sum( x_*P_ )
     if log:
-        x_mean = 10.**x_mean
+        expect = 10.**expect
 
     ## exactly compute sigma range
     P_cum = np.cumsum( P_ )
-    lo =   x_mean - first( zip(x, P_cum), condition= lambda x: x[1] > 0.5*(1-sigma_probability[sigma]) )[0]
-    hi = - x_mean + first( zip(x[1:], P_cum), condition= lambda x: x[1] > 1- 0.5*(1-sigma_probability[sigma]) )[0]
+    lo =   expect - first( zip(x, P_cum), condition= lambda x: x[1] > 0.5*(1-sigma_probability[sigma]) )[0]
+    hi = - expect + first( zip(x[1:], P_cum), condition= lambda x: x[1] > 1- 0.5*(1-sigma_probability[sigma]) )[0]
     
     ## if z is clearly within one bin, hi drops negative value
     #hi = np.abs(hi)
 
-#    x_std = np.sqrt( np.sum( P_ * ( x_ - x_mean)**2 ) ) ### only works for gaussian, so never
+#    x_std = np.sqrt( np.sum( P_ * ( x_ - expect)**2 ) ) ### only works for gaussian, so never
 
-    return x_mean, np.array([lo,hi]).reshape([2,1])
+    deviation = np.array([lo,hi]).reshape([2,1])
 
+    return expect, deviation
+
+
+def WeighBayesFactor( B=1, w=1 ):
+    """ Weigh the significance of Bayes factor B with weight w"""
+    w_log = np.log10(w)
+    return 10.**( np.log10(B) * (1+np.abs(w_log))**(1 - 2*(w_log<0) - (w_log==0) )  ) 
 
 
 ## GetLikelihood functions
