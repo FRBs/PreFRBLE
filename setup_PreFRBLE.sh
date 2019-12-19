@@ -22,7 +22,7 @@ then
     source $DIR/bin/activate
 
     ## install python packages used not by PreFRBLE, but by notebooks. If this fails, continue with install_PreFRBLE.sh
-    pip3 install numpy cython ipython jupyter scipy     
+    pip3 install numpy cython ipython jupyter scipy pandas statsmodels    
 fi
 
 ## install PreFRBLE

@@ -17,4 +17,4 @@ likelihood_file_Full = root_likelihood+'observables_likelihood_Full.h5'
 likelihood_file_telescope = root_likelihood+'observables_likelihood_telescope.h5'
 
 
-file_estimated_redshifts_DM = root_results+"redshift_estimates.npy"
+file_estimated_redshifts_DM = root_results+"redshift_estimates_%s.npy"
