@@ -75,6 +75,11 @@ def Likelihoods( measurements=[], P=[], x=[], minimal_likelihood=0. ):
     return likelihoods
 
 
+def LikelihoodShift( x=[], P=[], shift=1. ):
+    """ Shift x-values of likelihood function and renormalize accordingly: P(x|shift) = 1/shift * P(shift*x|1) """
+    return P/shift, x*shift
+
+
 def LikelihoodsAdd( Ps=[], xs=[], log=True, shrink=False, weights=None, renormalize=False ):
     ### add together several likelihoos functions
     ###  Ps: list of likelihood functions

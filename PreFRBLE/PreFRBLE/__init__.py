@@ -15,7 +15,7 @@ Quantify likelihood of scenarios to reproduce observed data.
 # PreFRBLE imports  !!!
 from .__version__ import version as __version__
 from . import convenience
-from . import file_system
+from . import estimate_redshift
 from . import likelihood
 from . import label
 from . import parameter

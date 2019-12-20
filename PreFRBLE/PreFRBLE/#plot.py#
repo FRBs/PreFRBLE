@@ -12,7 +12,8 @@ def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, co
     if ax is None:
         fig, ax = plt.subplots( )
     ax.bar(x, y/y.max(), width, color=color )
-    ax.set_title( title )
+    if title:
+        ax.set_title( title )
     ax.set_yscale('log')
     ax.set_xlabel( label )
     ax.set_ylabel(r"$\mathcal{B}/\mathcal{B}_{\rm max}$")
