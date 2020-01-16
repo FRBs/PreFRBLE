@@ -25,6 +25,55 @@ def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, co
     lim = ax.get_ylim()
     ax.set_ylim(lim[0]*0.5, lim[1]*2)
 
+def PlotBayes2D( bayes=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None ):
+    """
+    Plot 2D distribution of Bayes factors for joint analysis of two parameters x and y
+    
+    Parameters
+    ----------
+    x : 1D array-like
+        values of first parameter
+    y : 1D array-like
+        values of second parameter
+    bayes : 2D array-like, shape( N_y, N_x )
+        bayes factors for tuples of (x,y)
+    graphs : boolean
+        indicate whether results should be drawn as graphs 
+    plane : boolean
+        indicate whether results should be drawn as plane
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    if graphs:
+        for b, Y in zip( bayes/bayes.max(), y ):
+            ax.plot( x, b, label=Y )
+        ax.set_ylabel( r"$\mathcal{B}/\mathcal{B}_{\rm max}$" )
+        ax.set_xlabel( xlabel )
+        ax.set_yscale('log')
+        ax.legend()
+        
+    if plane:
+        levels = np.linspace( np.log10(P_min), 0, 200 )
+#        levels = np.linspace( np.log10(P_min), 0, -np.log10(P_min) )
+        colors = Rainbow( levels )
+        levels = 10.**levels
+        
+        xx = np.arange( len(x) ) if type(x[0]) is str else x
+        yy = np.arange( len(y) ) if type(y[0]) is str else y
+        xy_x, xy_y = np.meshgrid( xx, yy )
+        
+        ax.contourf( xy_x, xy_y, bayes/bayes.max(), levels, colors=colors )
+        Colorbar( np.log10(levels), label=r"log$_{10}\left(\mathcal{B}/\mathcal{B}_{\rm max}\right)$" )
+        ax.set_ylabel( ylabel )
+        ax.set_xlabel( xlabel )
+        if type(x[0]) is str:
+            ax.set_yticks( xx )
+            ax.set_yticklabels( x )
+        if type(y[0]) is str:
+            ax.set_yticks( yy )
+            ax.set_yticklabels( y )
+        
 
 
 
