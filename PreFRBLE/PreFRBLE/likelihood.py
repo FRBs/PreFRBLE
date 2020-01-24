@@ -495,7 +495,8 @@ def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, m
     if redshift < 0.1:
         typ='near'
     with h5.File( likelihood_file_IGM, 'r' ) as f:
-         return [f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
+#        print( [KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) for axis in ['P','x']] )
+        return [f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
 
 
 

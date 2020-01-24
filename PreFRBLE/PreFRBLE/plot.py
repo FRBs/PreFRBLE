@@ -48,8 +48,8 @@ def PlotBayes2D( bayes=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=
     if graphs:
         for b, Y in zip( bayes/bayes.max(), y ):
             ax.plot( x, b, label=Y )
-        ax.set_ylabel( r"$\mathcal{B}/\mathcal{B}_{\rm max}$" )
-        ax.set_xlabel( xlabel )
+        ax.set_ylabel( r"$\mathcal{B}/\mathcal{B}_{\rm max}$", fontdict={'size':18 }  )
+        ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         ax.set_yscale('log')
         ax.legend()
         
@@ -65,15 +65,14 @@ def PlotBayes2D( bayes=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=
         
         ax.contourf( xy_x, xy_y, bayes/bayes.max(), levels, colors=colors )
         Colorbar( np.log10(levels), label=r"log$_{10}\left(\mathcal{B}/\mathcal{B}_{\rm max}\right)$" )
-        ax.set_ylabel( ylabel )
-        ax.set_xlabel( xlabel )
+        ax.set_ylabel( ylabel, fontdict={'size':18 }  )
+        ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         if type(x[0]) is str:
             ax.set_yticks( xx )
             ax.set_yticklabels( x )
         if type(y[0]) is str:
             ax.set_yticks( yy )
             ax.set_yticklabels( y )
-        
 
 
 
@@ -88,6 +87,8 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
         PP *= np.diff(x)**(not density) * xx**density
     if cumulative:
         PP = np.cumsum( PP )
+        if cumulative == -1:
+            PP = 1 - PP
     if log:
         ax.loglog()
     ax.plot( xx, PP, **kwargs)
@@ -185,6 +186,18 @@ def Rainbow( x=np.linspace(0,1,2), min=None, max=None ):
     x_ = x - min
     x_ /= max
     return rainbow( x_ )
+
+def AllSidesTicks( ax ):
+    """ puts ticks without labels on top and right axis, identical to those on bottom and left axis, respectively """
+    axy = ax.twinx()
+    axy.set_ylim( ax.get_ylim() )
+    axy.set_yscale( ax.get_yscale() )
+    axy.set_yticklabels(labels=[])
+
+    axx = ax.twiny()
+    axx.set_xlim( ax.get_xlim() )
+    axx.set_xscale( ax.get_xscale() )
+    axx.set_xticklabels(labels=[])
 
 
 import itertools
