@@ -17,6 +17,7 @@ measures = [ 'DM', 'RM', 'SM', 'tau' ]
 units = {
     'DM'       :r"pc cm$^{-3}$",
     'RM'       :r"rad m$^{-2}$",
+    '|RM|'       :r"rad m$^{-2}$",
     'SM'       :r"kpc m$^{-20/3}$",
     'tau'      :"ms",
     'z'        :r"",
@@ -32,6 +33,7 @@ measure_range = {
 label_measure = {
     'DM'       : 'DM',
     'RM'       : '|RM|',
+    '|RM|'     : '|RM|',
     'SM'       : 'SM',
     'tau'      : r"$\tau$",
     'z'        :r"z",
@@ -42,6 +44,7 @@ label_measure = {
 scale_factor_exponent = { ## used to redshift results of local
     'DM' : 1,
     'RM' : 2,
+    '|RM|' : 2,
     'SM' : 2,
     'tau': 3.4
 }

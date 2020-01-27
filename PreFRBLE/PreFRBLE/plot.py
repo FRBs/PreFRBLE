@@ -64,7 +64,7 @@ def PlotBayes2D( bayes=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=
         xy_x, xy_y = np.meshgrid( xx, yy )
         
         ax.contourf( xy_x, xy_y, bayes/bayes.max(), levels, colors=colors )
-        Colorbar( np.log10(levels), label=r"log$_{10}\left(\mathcal{B}/\mathcal{B}_{\rm max}\right)$" )
+        Colorbar( np.log10(levels), label=r"log$_{10}\left(\mathcal{B}/\mathcal{B}_{\rm max}\right)$", ax=ax )
         ax.set_ylabel( ylabel, fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         if type(x[0]) is str:
@@ -145,11 +145,13 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwa
 
 
 
-def PlotTelescope( measure='DM', telescope='Parkes', population='SMD', ax=None, label=None, scenario={}, **kwargs ):
+def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', population='SMD', ax=None, scenario={}, **kwargs ):
     ### Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
     if ax is None:
         fig, ax = plt.subplots()
     P, x = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, **scenario )
+    if measureable:
+        P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
     PlotLikelihood( x, P, measure=measure, ax=ax, **kwargs )
     plt.tight_layout()
 

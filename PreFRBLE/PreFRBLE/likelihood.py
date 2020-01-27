@@ -367,14 +367,21 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
 
     return Ps, redshift_range
 
-def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., population='flat', telescope='None' ):
-    ### compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
-    ###  DMs, RMs, taus: 1D arrays of identical size, contain extragalactic component of observed values
-    ###  scenario: dictionary of models combined to one scenario
-    ###  prior: prior attributed to scenario
-    ###  population: assumed cosmic population of FRBs
-    ###  telescope: in action to observe DMs, RMs and taus
+def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., population='flat', telescope='None', force=False ):
+    """
+    compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
 
+    Parameters
+    ----------
+    DMs, RMs, taus: 1D array-like of identical size,
+        contain extragalactic component of observed values
+    scenario: dictionary,
+        models combined to one scenario
+    population: string,
+        assumed cosmic population of FRBs
+    telescope: string,
+        instrument to observe DMs, RMs and taus
+    """
 
     result = np.zeros( len(DMs) )
     
@@ -385,7 +392,7 @@ def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., popula
     for redshift, P_redshift, dredshift in zip( redshift_bins, P_redshifts_DMs.transpose(), np.diff(redshift_range) ):
         ## estimate likelihood of scenario based on RM, using the redshift likelihood as a prior
         ##  sum results of all possible redshifts
-        P, x = GetLikelihood_Full( measure='RM', **scenario )
+        P, x = GetLikelihood_Full( redshift=redshift, measure='RM', force=force, **scenario )
         P, x = LikelihoodMeasureable( x=x, P=P, min=RM_min )
 #        P, x = LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario )
 #        res = P_redshift*dredshift * Likelihoods( measurements=RMs, P=P, x=x )
@@ -397,24 +404,41 @@ def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., popula
 
 
 
-def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, population='flat', telescope='None', which_NaN=False ):
-    ### for set of observed tuples of DM, RM (and tau), compute total Bayes factor that quantifies corroboration towards scenario1 above scenario2 
-    ### first computes the Bayes factor = ratio of likelihoods for each tuple, then computes the product of all bayes factors
-    ###  DMs, RMs, taus: 1D arrays of identical size, contain extragalactic component of observed values
-    ###  scenario1/2: dictionary of models combined to one scenario
-    ###  population: assumed cosmic population of FRBs
-    ###  telescope: in action to observe DMs, RMs and taus
-    L1 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus )
-    L2 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus )
-    result =  np.prod(L1/L2)
-    NaN = np.isnan(result)
+def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, population='flat', telescope='None', which_NaN=False, L0=None, force=False, force_full=False ):
+    """
+    for set of observed tuples of DM, RM (and tau), compute total Bayes factor that quantifies corroboration towards scenario1 above scenario2 
+    first computes the Bayes factor = ratio of likelihoods for each tuple, then computes the product of all bayes factors
+
+    Parameters
+    ----------
+
+    DMs, RMs, taus: 1D array-like of identical size,
+        contain extragalactic component of observed values
+    scenario1/2: dictionary,
+        models combined to one scenario
+    population: string,
+        assumed cosmic population of FRBs
+    telescope: string,
+        instrument to observe DMs, RMs and taus
+    force : boolean,
+        force new computation of convolved likelihood for scenario1. Needed after changes in the model likelihood
+    force_full : boolean,
+        force new computation of convolved likelihood for scenario2. Needed after changes in the model likelihood, but only once per scenario. Since scenario2 should be the same in all calls, only needed in first call
+    L0 : (optional) array-like, shape(DMs), 
+        provide results for scenario2 in order to accelerate computation for several scenarios 
+
+    """
+    L1 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus, population=population, telescope=telescope, force=force )
+    L2 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus, population=population, telescope=telescope, force=force_full ) if L0 is None else L0
+    ratio =  L1/L2
+    NaN = np.isnan(ratio) + np.isinf(ratio)
     if np.any(NaN):
         print( "%i of %i returned NaN. Ignore in final result" %( np.sum(NaN), len(DMs) ) )
         if which_NaN:
             ix, = np.where( NaN )
             print(ix)
-        return np.nanprod( L1/L2 )
-    return result
+        return np.prod( ratio[ ~NaN ] )
+    return np.prod(ratio)
 #    return np.prod( LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus ) / LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus ) )
 
 
@@ -423,7 +447,7 @@ def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=Tru
     computes the estimate value and deviation from likelihood function P (must be normalized to 1)
 
 
-    Paraeters
+    Parameters
     --------
     P : array_like, shape(N)
         likelihood function
@@ -504,13 +528,17 @@ def GetLikelihood_Redshift( population='SMD', telescope='None' ):
     with h5.File( likelihood_file_redshift, 'r' ) as f:
         return [ f[ KeyRedshift( population=population, telescope=telescope, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
-def GetLikelihood_Host_old( redshift=0., model='JF12', weight='uniform', measure='DM' ):
+def GetLikelihood_Host_old( redshift=0., model='JF12', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        return [ f[ KeyHost( model=model, weight=weight, measure=measure, axis=axis ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
+#        print([ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) for axis in ['P', 'x'] ] )
+        return [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
 
 def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
-    with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        return [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
+    try:
+        with h5.File( likelihood_file_galaxy, 'r' ) as f:
+            return [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
+    except:
+        return GetLikelihood_Host_old( redshift, model,  measure )
 
 
 def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
