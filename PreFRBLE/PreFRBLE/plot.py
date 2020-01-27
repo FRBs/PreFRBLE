@@ -96,18 +96,20 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
     if measure is not None:
         ax.set_xlabel( UnitLabel( measure ) , fontdict={'size':16 } )
         ylabel = ( r"P(%s)" % label_measure[measure] ) 
-        if log:
+        if cumulative:
+            ylabel = r"$\int$"+ylabel
+        elif log:
             ylabel += ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] )
         ax.set_ylabel( ylabel, fontdict={'size':18 } )
 #        ax.set_ylabel( ( r"P(%s)" % label_measure[measure] ) + ( ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] ) ), fontdict={'size':18 } )
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
-def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, **kwargs ):
+def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, force=False, **kwargs ):
     if ax is None:
         fig, ax = plt.subplots()
     for z, color in zip( redshift_bins, Rainbow(redshift_bins) ):
-        P, x = GetLikelihood_Full( redshift=z, measure=measure, **scenario )
+        P, x = GetLikelihood_Full( redshift=z, measure=measure, force=force, **scenario )
         if measureable:
             P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
         PlotLikelihood(P=P, x=x, ax=ax, measure=measure, color=color, **kwargs )
@@ -145,11 +147,11 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwa
 
 
 
-def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', population='SMD', ax=None, scenario={}, **kwargs ):
+def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', population='SMD', ax=None, scenario={}, force=False, **kwargs ):
     ### Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
     if ax is None:
         fig, ax = plt.subplots()
-    P, x = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, **scenario )
+    P, x = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, **scenario )
     if measureable:
         P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
     PlotLikelihood( x, P, measure=measure, ax=ax, **kwargs )

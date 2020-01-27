@@ -1,6 +1,7 @@
 import numpy as np
 from multiprocessing import Pool
 from functools import partial
+from tqdm import trange
 from PreFRBLE.convenience import *
 #from PreFRBLE.parameter import *
 from PreFRBLE.physics import *
@@ -188,8 +189,10 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
 
 
 def LikelihoodsConvolve( Ps=[], xs=[], **kwargs ):
-    ### iteratively convolve likelihood functions 
-    ###  kwargs for Convole Probability
+    """
+    iteratively convolve likelihood functions given in Ps, xs
+    kwargs for Convole Probability
+    """
     P, x = Ps[0], xs[0]
     i = 0.
     for P_, x_ in zip( Ps[1:], xs[1:] ):
@@ -263,7 +266,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, **scenario ):
     return P,x
 '''
 
-def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, **scenario ):
+def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, **scenario ):
     ### return the likelihood function for measure expected to be observed by telescope
     ###  nside_IGM: pixelization of IGM full-sky maps
         
@@ -275,8 +278,10 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
     
     ## possible solutions for all redshifts are summed, weighed by the prior
     Ps, xs = [], []
-    for z in redshift_bins:
-        P, x = GetLikelihood_Full( measure=measure, redshift=z, **scenario )
+#    for z in redshift_bins:
+    for i in trange( len(redshift_bins) ):
+        z = redshift_bins[i]
+        P, x = GetLikelihood_Full( measure=measure, redshift=z, force=force, **scenario )
         Ps.append(P)
         xs.append(x)
     P, x = LikelihoodsAdd( Ps, xs, renormalize=1., weights=Pz*np.diff(zs) )
@@ -531,7 +536,9 @@ def GetLikelihood_Redshift( population='SMD', telescope='None' ):
 def GetLikelihood_Host_old( redshift=0., model='JF12', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
 #        print([ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) for axis in ['P', 'x'] ] )
-        return [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
+#        return [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
+        P, x = [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] for axis in ['P', 'x'] ]
+        return LikelihoodShift( x=x, P=P, shift=(1+redshift)**scale_factor_exponent[measure] )
 
 def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
     try:
@@ -547,7 +554,9 @@ def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
 
 def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
     with h5.File( likelihood_file_local, 'r' ) as f:
-        return [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
+#        return [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
+        P, x = [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
+        return LikelihoodShift( x=x, P=P, shift=(1+redshift)**scale_factor_exponent[measure] )
 
 def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
@@ -593,7 +602,7 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
                 return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, **scenario ) ][()] for axis in ['P', 'x'] ]
         except:
             pass
-    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, **scenario )
+    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, **scenario )
 
 
 
@@ -601,7 +610,7 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
 ### procedures for fast parallel computation of combined likelihood functions
 
 def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=8, force=False ):
-    ### compute fill likelihood functions for all redshifts and measures in scenario
+    ### compute full likelihood functions for all redshifts and measures in scenario as well as expectations for all telescopes and populations
     ### for RM, also investigate all models_IGMF with identical DM, SM and tau as model_IGM in scenario
     msrs = measures[:]
     msrs.remove('RM')
@@ -628,6 +637,23 @@ def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=
         O=0
 #        p.join()
     p.close()
+    print( "this took %.1f minutes" % ( (time()-t0) / 60 ) )
+        
+
+def ComputeTelescopeLikelihood( scenario={}, telescopes=telescoes, populations=populations, force=False ):
+    """ 
+    compute full likelihood function for all redshifts and measures in scenario as well as expectations for all telescopes and populations
+    """
+    msrs = measures[:]
+    msrs.remove('RM')
+
+    t0 = time()
+
+    for measure in msrs:
+        for telescope in telescopes:
+            for population in populations:
+                GetLikelihood_Telescope( measure=measure, telescope=telescope, population=population, force=force, **scenario )
+
     print( "this took %.1f minutes" % ( (time()-t0) / 60 ) )
         
 
