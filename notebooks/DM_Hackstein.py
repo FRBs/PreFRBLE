@@ -39,10 +39,12 @@ import astropy.units as u
 
 class Sightline:
 
-    def __init__(self,B0,l0):
+    def __init__(self,B0,l0, z_max):
         self.B0 = B0           # muGauss at number density
         self.l0 = l0           # correlation of B-field length in Mpc
         self.refdens = 1.8e-7
+
+        self.zarray = self.CreateArrays( z_max )[0]
 
     def MC_DM_RM(self, nmax,zmin,zmax,numbins):
         """
@@ -67,8 +69,11 @@ class Sightline:
         Returns: DM in units of pc cm^-3
         """
         DM_nmax = np.zeros(nmax)
+
+        zfar = self.zarray[ self.zarray <= zmax ]
+
         for i in range(nmax):
-            zfar,d1 = self.CreateArrays(zmax)
+            zfar,d1 = self.CreateArrays(zmax, zarray=zfar)
             DM_nmax[i] = self.DispersionMeasure(d1,zfar)[-1]
         return DM_nmax
 
@@ -78,8 +83,11 @@ class Sightline:
         Returns: RM
         """
         RM_nmax = np.zeros(nmax)
+
+        zfar = self.zarray[ self.zarray <= zmax ]  ## use global zarray computed until required redshift
+
         for i in range(nmax):
-            zfar,d1 = self.CreateArrays(zmax)
+            zfar,d1 = self.CreateArrays(zmax, zarray=zfar)
             RM_nmax[i] = self.RotationMeasure(d1,zfar)[-1]
         return RM_nmax
 
@@ -97,7 +105,7 @@ class Sightline:
         d=Planck13.critical_density(z).value
         return d/1.67e-24 # in cm^-3
 
-    def CreateArrays(self,zmax):
+    def CreateArrays(self,zmax, zarray=None):
         """
         returns number density and redshift (out to zmax) arrays
         density is sampled from log-normal distribution including correlation
@@ -105,19 +113,29 @@ class Sightline:
 
         Input:  
                 zmax - maximum redshift
+                zarray - (optional) supply the repeatedly calculated zarray for multiple LoS to allow for faster computation
         """
-        zarray=np.array([0])            # this will contain the redshift
+        if zarray is None:
+            zarray=np.array([0])            # this will contain the redshift
         d1=self.NumberDensity(zarray[0])
         densarray=np.array([d1])  # this will contain the number density
         innercutoff=0.2
         z = 0.
-        while z<zmax:
-            z=zarray[-1]+self.JeansLength(zarray[-1])
-            zarray=np.append(zarray,z)
-            sigma = 0.08+5.37/(1+z)-4.21/(1+z)**2+1.44/(1+z)**3
+        if len(zarray) == 1:
+            while z<zmax:
+                z=zarray[-1]+self.JeansLength(zarray[-1])
+                zarray=np.append(zarray,z)
+                sigma = 0.08+5.37/(1+z)-4.21/(1+z)**2+1.44/(1+z)**3
+                mu = -0.5*sigma**2
+                d = 1.8e-7*np.random.lognormal(mu,sigma,1)*(1+z)**3
+                densarray=np.append(densarray,d)
+        else:
+            sigma = 0.08+5.37/(1+zarray)-4.21/(1+zarray)**2+1.44/(1+zarray)**3
             mu = -0.5*sigma**2
-            d = 1.8e-7*np.random.lognormal(mu,sigma,1)*(1+z)**3
-            densarray=np.append(densarray,d)
+            for z, m, s in zip( zarray[1:], mu[1:], sigma[1:]):
+                d = 1.8e-7*np.random.lognormal(m,s,1)*(1+z)**3
+                densarray=np.append(densarray,d)
+
         return zarray, densarray
 
     def DispersionMeasure(self,densarray,zarray):
@@ -147,6 +165,7 @@ class Sightline:
         # add random flip after multiple self.l0 - there must be a faster way   
         ### this is not the bottle neck, constructing the densarray and zarray is. 
         ### computing these arrays takes up to > 100 seconds while this only takes 0.2 seconds
+        ### however, the version below should be faster
         '''
         magfield = np.ones(len(properdistancearray))
         ampl = self.B0
@@ -159,16 +178,15 @@ class Sightline:
                 ampl = self.B0*np.cos(np.random.uniform(0,2*np.pi,1))
                 counter = counter+1
             magfield[i] = ampl
-        magarray = densarray**(2./3.)*magfield/self.refdens**(2./3.)/(1+zarray)**4  ## refdens has to be in proper coordinates, as is densarray, thus has to be rescaled by (1+z)**3. This gives the comoving magnetic field, which has to be rescaled by (1+z)**-2 to get the proper field strength
+        magarray = densarray**(2./3.)*magfield/self.refdens**(2./3.)
 
         '''
         ## first initiate magnetic field array with maximum possible value
-        magarray = self.B0*densarray**(2./3.)/self.refdens**(2./3.)/(1+zarray)**4  ## refdens has to be in proper coordinates, as is densarray, thus has to be rescaled by (1+z)**3. This gives the comoving magnetic field, which has to be rescaled by (1+z)**-2 to get the proper field strength
-        ## simultaneously compute for each step, to which flip it belongs
+        magarray = self.B0 * ( densarray / self.refdens )**(2./3.) ## refdens has to be in proper coordinates, as is densarray, thus has to be rescaled by (1+z)**3. This gives the comoving magnetic field, which has to be rescaled by (1+z)**2 to get the proper field strength
+        ## find the flip number for all steps
         flip = ( properdistancearray // ( self.l0*2.3*(1+zarray)**(-1.5) ) ).astype('i')
-        ## simultaneously compute for each flip the direction of B
+        ##  compute B|| for all flips
         r = np.cos(np.random.uniform(0,2*np.pi,flip[-1]+1))
-        ## and apply the corresponding geometric factor to magnetic field array
         magarray *= r[flip]
 
         # In cumulative sum, direction is reversed to integrate toward observer

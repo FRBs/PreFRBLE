@@ -106,7 +106,7 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
 def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, **kwargs ):
     if ax is None:
         fig, ax = plt.subplots()
-    for z, color in zip( redshift_bins, rainbow(redshift_bins/redshift_bins.max()) ):
+    for z, color in zip( redshift_bins, Rainbow(redshift_bins) ):
         P, x = GetLikelihood_Full( redshift=z, measure=measure, **scenario )
         if measureable:
             P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )

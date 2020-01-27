@@ -22,10 +22,10 @@ for n_model, color in zip( ['sfr','smd','vol_co'], ['blue','red','green']):
     # Observe the FRB population
     survey_pop = SurveyPopulation(cosmic_pop, survey, rate_limit=False)
     
-    P, x = histogram(cosmic_pop.frbs.z, density=True, bins=60, range=[0,6])
+    P, x = Histogram(cosmic_pop.frbs.z, density=True, bins=60, range=[0,6])
     Write2h5( likelihood_file_redshift, [P,x], [ KeyRedshift( n_model, "None", axis )  for axis in ["P","x"] ] )
     
-    P, x = histogram(survey_pop.frbs.z, density=True, bins=60, range=[0,6])
+    P, x = Histogram(survey_pop.frbs.z, density=True, bins=60, range=[0,6])
     Write2h5( likelihood_file_redshift, [P,x], [ KeyRedshift( n_model, "CHIME", axis )  for axis in ["P","x"] ] )
     
 print "This took %.1f minutes" % ( time() - t0 )

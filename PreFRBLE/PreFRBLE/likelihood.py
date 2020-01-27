@@ -8,7 +8,7 @@ from PreFRBLE.physics import *
 
 ## mathematical likelihood operations
 
-def histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False ):
+def Histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False ):
     ## wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function
     if log:
         if range is not None:
