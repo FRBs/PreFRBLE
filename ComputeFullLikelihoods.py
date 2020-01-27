@@ -1,4 +1,6 @@
+import numpy as np
 from PreFRBLE.likelihood import ComputeFullLikelihood, ComputeTelescopeLikelihood
+
 
 scenario = {
     'IGM' : ['primordial'],
@@ -25,9 +27,9 @@ f_IGMs = np.arange(0.2,0.9,0.1)
 
 for model in models_IGMF:
     for f_IGM in f_IGMs:
-        tmp = scenario.copy
+        tmp = scenario.copy()
         tmp['IGM'] = ["%s_C%.0f" % (model, 1000*f_IGM) ]
         print( tmp )
-#        ComputeTelescopeLikelihood( scenario=scenario, force=force)
+        ComputeTelescopeLikelihood( scenario=scenario, force=force)
 
 

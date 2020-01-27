@@ -640,7 +640,7 @@ def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=
     print( "this took %.1f minutes" % ( (time()-t0) / 60 ) )
         
 
-def ComputeTelescopeLikelihood( scenario={}, telescopes=telescoes, populations=populations, force=False ):
+def ComputeTelescopeLikelihood( scenario={}, telescopes=telescopes, populations=populations, force=False ):
     """ 
     compute full likelihood function for all redshifts and measures in scenario as well as expectations for all telescopes and populations
     """
