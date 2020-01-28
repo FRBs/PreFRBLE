@@ -372,7 +372,7 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
 
     return Ps, redshift_range
 
-def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., population='flat', telescope='None', force=False ):
+def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1., population='flat', telescope='None', force=False ):
     """
     compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
 
@@ -389,6 +389,9 @@ def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., popula
     """
 
     result = np.zeros( len(DMs) )
+    if zs is None:
+        zs = np.zeros(len(DMs))
+    localized, = np.where(zs > 0)
     
     ## estimate likelihood of source redshift based on DM and tau
     P_redshifts_DMs, redshift_range = LikelihoodRedshift( DMs=DMs, scenario=scenario, taus=taus, population=population, telescope=telescope )
@@ -404,12 +407,21 @@ def LikelihoodCombined( DMs=[], RMs=[], taus=None, scenario={}, prior=1., popula
 #        print( res)
 #        result += res
         result += P_redshift*dredshift * Likelihoods( measurements=RMs, P=P, x=x )
- 
+
+    ## for localized events, instead use likelihood of DM and RM at host redshift
+    for loc in localized:
+        P, x = GetLikelihood_Full( redshift=zs[loc], measure='DM', force=force, **scenario )
+        result[loc] = Likelihoods( measurements=[DMs[loc]], P=P, x=x )[0]
+
+        P, x = GetLikelihood_Full( redshift=zs[loc], measure='RM', force=force, **scenario )
+        P, x = LikelihoodMeasureable( x=x, P=P, min=RM_min )
+        result[loc] *= Likelihoods( measurements=[RMs[loc]], P=P, x=x )[0]
+        
     return result * prior
 
 
 
-def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, population='flat', telescope='None', which_NaN=False, L0=None, force=False, force_full=False ):
+def BayesFactorCombined( DMs=[], RMs=[], zs=None, scenario1={}, scenario2={}, taus=None, population='flat', telescope='None', which_NaN=False, L0=None, force=False, force_full=False ):
     """
     for set of observed tuples of DM, RM (and tau), compute total Bayes factor that quantifies corroboration towards scenario1 above scenario2 
     first computes the Bayes factor = ratio of likelihoods for each tuple, then computes the product of all bayes factors
@@ -433,8 +445,8 @@ def BayesFactorCombined( DMs=[], RMs=[], scenario1={}, scenario2={}, taus=None, 
         provide results for scenario2 in order to accelerate computation for several scenarios 
 
     """
-    L1 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus, population=population, telescope=telescope, force=force )
-    L2 = LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus, population=population, telescope=telescope, force=force_full ) if L0 is None else L0
+    L1 = LikelihoodCombined( DMs=DMs, RMs=RMs, zs=zs, scenario=scenario1, taus=taus, population=population, telescope=telescope, force=force )
+    L2 = LikelihoodCombined( DMs=DMs, RMs=RMs, zs=zs, scenario=scenario2, taus=taus, population=population, telescope=telescope, force=force_full ) if L0 is None else L0
     ratio =  L1/L2
     NaN = np.isnan(ratio) + np.isinf(ratio)
     if np.any(NaN):
@@ -590,6 +602,7 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
     if not force:
         try:
             with h5.File( likelihood_file_Full, 'r' ) as f:
+#                print( [ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) for axis in ['P', 'x'] ] )
                 return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) ][()] for axis in ['P', 'x'] ]
         except:
             pass
