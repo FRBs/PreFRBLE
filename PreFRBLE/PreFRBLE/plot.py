@@ -25,7 +25,7 @@ def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, co
     lim = ax.get_ylim()
     ax.set_ylim(lim[0]*0.5, lim[1]*2)
 
-def PlotBayes2D( bayes=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None ):
+def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None ):
     """
     Plot 2D distribution of Bayes factors for joint analysis of two parameters x and y
     
@@ -37,6 +37,8 @@ def PlotBayes2D( bayes=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=
         values of second parameter
     bayes : 2D array-like, shape( N_y, N_x )
         bayes factors for tuples of (x,y)
+    N_bayes : integer
+        number of events that enter bayes. Used to plot Poisson noise. ## depreciated, since Poisson noise is misleading error estimate for bayes
     graphs : boolean
         indicate whether results should be drawn as graphs 
     plane : boolean
@@ -46,8 +48,10 @@ def PlotBayes2D( bayes=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=
         fig, ax = plt.subplots()
     
     if graphs:
+#        noise =  N_bayes**-0.5 if N_bayes > 1 else 0
         for b, Y in zip( bayes/bayes.max(), y ):
             ax.plot( x, b, label=Y )
+#            ax.errorbar( x, b, yerr=b*noise, label=Y )
         ax.set_ylabel( r"$\mathcal{B}/\mathcal{B}_{\rm max}$", fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         ax.set_yscale('log')
@@ -97,7 +101,7 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
         ax.set_xlabel( UnitLabel( measure ) , fontdict={'size':16 } )
         ylabel = ( r"P(%s)" % label_measure[measure] ) 
         if cumulative:
-            ylabel = r"$\int$"+ylabel
+            ylabel = r"$\int$"+ylabel+r"${\rm d}$"+label_measure[measure]
         elif log:
             ylabel += ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] )
         ax.set_ylabel( ylabel, fontdict={'size':18 } )
@@ -204,7 +208,6 @@ def AllSidesTicks( ax ):
     axx.set_xticklabels(labels=[])
 
 
-import itertools
 def get_steps( N=2, x=np.array([1.,10.]), log=False):
     ''' calculate N equal (logarithmic) steps from x[0] to x[1] '''
     if log:
@@ -256,7 +259,7 @@ def PlotLimit( ax=None, x=[1,1], y=[1,2], label='', lower_limit=True, arrow_numb
 #    for xa, ya in itertools.izip( x_ar, y_ar ):
 #        ax.arrow( xa, ya, x_length, y_length, width=arrow_width, **kwargs )
 #    for xa, ya in itertools.izip( coord2normal( x_ar, ax.get_xlim(), log=xlog ), coord2normal( y_ar, ax.get_ylim(), log=ylog ) ):
-    for xa, ya in itertools.izip( x_ar, y_ar ):
+    for xa, ya in zip( x_ar, y_ar ):
         ax.arrow( xa, ya, x_length, y_length, transform=ax.transAxes, width=arrow_width, head_width=3*arrow_width, length_includes_head=True, **kwargs )
 #        ax.arrow( xa, ya, x_length, y_length, transform=ax.transAxes, width=arrow_width, head_width=3*arrow_width, length_includes_head=True, **kwargs )
     return; 
