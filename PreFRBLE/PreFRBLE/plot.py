@@ -8,14 +8,17 @@ from PreFRBLE.likelihood import *
 #from PreFRBLE.parameter import *
 
 ## Convenient Plot functions
-def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, color='blue', show_values=False, ax=None ):
+def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, color='blue', show_values=False, ax=None, posterior=False ):
     if ax is None:
         fig, ax = plt.subplots( )
     ax.bar(x, y/y.max(), width, color=color )
     ax.set_title( title )
     ax.set_yscale('log')
     ax.set_xlabel( label )
-    ax.set_ylabel(r"$\mathcal{B}/\mathcal{B}_{\rm max}$")
+    if posterior:
+        ax.set_ylabel(r"$L/L_{\rm max}$")
+    else:
+        ax.set_ylabel(r"$\mathcal{B}/\mathcal{B}_{\rm max}$")
     if show_values: ## print value on top of each bar, .... doesnt work ...
         shift = y.max()/y.min()/10
         for xx, yy in zip( x, y ):
@@ -25,7 +28,7 @@ def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, co
     lim = ax.get_ylim()
     ax.set_ylim(lim[0]*0.5, lim[1]*2)
 
-def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None ):
+def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None, posterior=False ):
     """
     Plot 2D distribution of Bayes factors for joint analysis of two parameters x and y
     
@@ -46,13 +49,18 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
     """
     if ax is None:
         fig, ax = plt.subplots()
-    
+
+        
+    if posterior:
+        P_label = r"$L/L_{\rm max}$"
+    else:
+        P_label = r"$\mathcal{B}/\mathcal{B}_{\rm max}$"
     if graphs:
 #        noise =  N_bayes**-0.5 if N_bayes > 1 else 0
         for b, Y in zip( bayes/bayes.max(), y ):
             ax.plot( x, b, label=Y )
 #            ax.errorbar( x, b, yerr=b*noise, label=Y )
-        ax.set_ylabel( r"$\mathcal{B}/\mathcal{B}_{\rm max}$", fontdict={'size':18 }  )
+        ax.set_ylabel( P_label, fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         ax.set_yscale('log')
         ax.legend()
@@ -68,7 +76,7 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
         xy_x, xy_y = np.meshgrid( xx, yy )
         
         ax.contourf( xy_x, xy_y, bayes/bayes.max(), levels, colors=colors )
-        Colorbar( np.log10(levels), label=r"log$_{10}\left(\mathcal{B}/\mathcal{B}_{\rm max}\right)$", ax=ax )
+        Colorbar( np.log10(levels), label=r"log$_{10}\left( %s \right)$" % P_label, ax=ax )
         ax.set_ylabel( ylabel, fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         if type(x[0]) is str:

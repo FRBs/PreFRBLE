@@ -5,7 +5,33 @@ from PreFRBLE.parameter import *
 
 
 
-def RedshiftEstimate( DM=0, ax=None, telescope='Parkes', population='SMD', scenario={}, plot=False, **kwargs ):
+def RedshiftEstimate( DM=0, telescope='Parkes', population='SMD', scenario={}, plot=False, ax=None, **kwargs ):
+    """
+    estimate the redshift from DM of FRB observed by telescope
+
+
+    Parameters
+    ----------
+    DM : float
+        (extragalactic) DM 
+    telescope : string
+        observing telescope
+    scenario : dictionary
+        assumed scenario for he full line of sight
+    population : string
+        assumed cosmic population
+    plot : boolean
+        if True, plot likelihood function  of radshift with estimate
+    ax : pyplot axis, optional
+        axis for plot
+    **kwargs for PlotLikelihood
+
+    Returns
+    -------
+    estimate, deviation
+        deviation is such to easily work with plt.errorbar( DM, est, yerr=dev )
+
+    """
     Ps, z = LikelihoodRedshift( DMs=[DM], population=population, telescope=telescope, scenario=scenario )
     est, dev = Likelihood2Expectation( x=z, P=Ps[0], log=False, density=True, std_nan=( 0.05, np.array([0.05,0.05]).reshape([2,1]) ) )
     if plot and not np.isnan(est):
@@ -18,7 +44,31 @@ def RedshiftEstimate( DM=0, ax=None, telescope='Parkes', population='SMD', scena
         ax.set_xscale('linear')
     return est, dev
     
-def RedshiftEstimates( DM=0, ax=None, telescope='Parkes', scenario={}, plot=False, **kwargs ):
+def RedshiftEstimates( DM=0, telescope='Parkes', scenario={}, plot=False, ax=None, **kwargs ):
+    """
+    estimate the redshift from DM of FRB observed by telescope for all considered populations
+
+
+    Parameters
+    ----------
+    DM : float
+        (extragalactic) DM 
+    telescope : string
+        observing telescope
+    scenario : dictionary
+        assumed scenario for he full line of sight
+    plot : boolean
+        if True, plot likelihood function  of radshift with estimate
+    ax : pyplot axis, optional
+        axis for plot
+    **kwargs for PlotLikelihood
+
+    Returns
+    -------
+    estimates, deviations
+        deviation is such to easily work with plt.errorbar( i_pops, ests, yerr=devs )
+
+    """
     if plot and ax is None:
         fig, ax = plt.subplots()
     ests, devs = [], []
@@ -33,9 +83,25 @@ def RedshiftEstimates( DM=0, ax=None, telescope='Parkes', scenario={}, plot=Fals
 
 def EstimateRedshiftsFRBcat( scenario={}, plot=False, write_tex=False ):
     """
-    read all events listed in FRBcat and estimate their redshift, writes the results to npy file
-    
+    read all events listed in FRBcat and estimate their redshift. write results to npy file
+
+
+    Parameters
+    ----------
+    scenario : dictionary
+        assumed scenario for he full line of sight
+    plot : boolean
+        if True, plot likelihood function  of radshift with estimate
+    write_tex :  boolean
+        if True, create .tex file at file_tex_redshifts_DM with table of estimates
+
+    Returns
+    -------
+    estimate, deviation
+        deviation is such to easily work with plt.errorbar( DM, est, yerr=dev )
+
     """
+    
 
 
     redshift_estimates, deviations, teles = [], [], []
@@ -105,7 +171,7 @@ def Get_EstimatedRedshifts( scenario={} ):
 
 
 
-## wrapper to make sure, redshift estimates have been written to file yet
+## wrapper to make sure, redshift estimates have not been written to file yet
 def GetEstimatedRedshifts( scenario={} ):
     """ obtain estimated source redshifts written to npy file """
     try:
@@ -207,7 +273,7 @@ def BayesPopulation( scenario={}, plot_distribution=False, redshift_minimum=0.15
     ## only use FRBs with reasonable redshift estimates
     ix_reasonable, = np.where( redshift_estimates['redshiftSMD']>redshift_minimum )
 
-    ## compute dull Bayes factor = prduct of individual bayes factors
+    ## compute full Bayes factor = product of individual bayes factors
     bayes = np.prod( likelihoods[ ix_reasonable  ], axis=0 )
 
 

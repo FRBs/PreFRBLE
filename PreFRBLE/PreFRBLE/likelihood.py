@@ -10,7 +10,7 @@ from PreFRBLE.physics import *
 ## mathematical likelihood operations
 
 def Histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False ):
-    ## wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function
+    """ wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function """
     if log:
         if range is not None:
             range = np.log10(range)
@@ -82,13 +82,29 @@ def LikelihoodShift( x=[], P=[], shift=1. ):
 
 
 def LikelihoodsAdd( Ps=[], xs=[], log=True, shrink=False, weights=None, renormalize=False ):
-    ### add together several likelihoos functions
-    ###  Ps: list of likelihood functions
-    ###  xs: list of bin ranges of likelihood functions
-    ###  log: set to False if xs are not log-scaled
-    ###  shrink=bins: force number of bins in result, otherwise use size of first likelihood function
-    ###  weights: provide weights for the likelihood functions
-    ### renormalize: total likelihood of the final result
+    """
+    add together several likelihoos functions
+
+    Parameters
+    ----------
+    Ps : array-like
+        list of likelihood functions
+    xs : array-like
+        list of bin ranges of likelihood functions
+    log : boolean
+        indicate wether xs are log-scaled
+    shrink : integer
+        determine number of bins in result, otherwise use size of Ps[0]
+    weights : array-like, len=Ps.shape[0], optional
+        provide weights for the likelihood functions
+    renormalize : float, optional
+        renormlization of result
+
+    Returns
+    -------
+    P, x : summed likelihood function values and range
+
+    """
 
     if len(Ps) == 1:
         ## if only one function is given, return the original
@@ -136,18 +152,30 @@ def LikelihoodsAdd( Ps=[], xs=[], log=True, shrink=False, weights=None, renormal
     return P, x
 
 def LikelihoodShrink( P=np.array(0), x=np.array(0), bins=100, log=True ):
-    ### reduce number of bins in likelihood function, contains normalization
-    ### Actual work is done by LikelihoodsAdd, which adds up several P to new range wit limited number of bins
+    """ reduce number of bins in likelihood function, contains normalization """
+    ### Actual work is done by LikelihoodsAdd, which adds up several P to new range with limited number of bins
     ### to shrink function, add P=0 with identical range
     return LikelihoodsAdd( [P, np.zeros(len(x))], [x,x], shrink=bins, log=log, renormalize=np.sum( P*np.diff(x) ) )
 
 
 def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False ):
-    ### compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
-    ###  shrink=True: number of bins of result reduced to number of bins in f (will get big otherwise)
-    ###  log: indicates whether x_f and x_g are log-scaled
-    ###  absolute: if likelihood is for absolute value, allow to cancel out! assume same likelihood for + and -
+    """
+    compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
 
+    Parameters
+    ----------
+    shrink : boolean
+         if True, reduce number of bins of result to number of bins in f (will get big otherwise)
+    log : boolean
+         indicates whether x_f and x_g are log-scaled
+    absolute : boolean
+        indicate whether likelihood describes absolute value (possibly negative)
+        if True, allow to values to cancel out by assuming same likelihood for positive and negative values
+
+    Returns
+    -------
+    P, x : convolvec likelihood function values and range
+    """
     if absolute:
     ##   allow values to cancel out, assume same likelihood for + and -
 #        x_min = x_g[0] + x_f[0]  ## keep minimum of resulting x for later ## this minimum is not correct, take the one below
@@ -189,10 +217,7 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
 
 
 def LikelihoodsConvolve( Ps=[], xs=[], **kwargs ):
-    """
-    iteratively convolve likelihood functions given in Ps, xs
-    kwargs for Convole Probability
-    """
+    """ iteratively convolve likelihood functions given in Ps, xs. **kwargs for LikelihoodConvolve """
     P, x = Ps[0], xs[0]
     i = 0.
     for P_, x_ in zip( Ps[1:], xs[1:] ):
@@ -203,9 +228,17 @@ def LikelihoodsConvolve( Ps=[], xs=[], **kwargs ):
 
 
 def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, **kwargs ):
-    ### return likelihood for region, if multiple models are provided, their likelihoods are summed together 
-    ###  weights: weights to be applied to the models
-    ###  kwargs: for GetLikelihood
+    """
+    return likelihood for a region. if multiple models are provided, their likelihoods are summed together 
+
+    Parameters
+    ----------
+    region : string
+        indicate the region along line of sight
+    weights: array-like, optional
+         weights to be applied to the models
+    **kwargs for GetLikelihood
+    """
     Ps, xs = [], []
     for model in models:
         P, x = GetLikelihood( region=region, model=model, **kwargs  )

@@ -7,7 +7,7 @@ from PreFRBLE.parameter import *
 
 
 def CorrectScenario( measure='DM', **scenario ):
-    ## this function is used to correct scenario keys wenn reading data, since some models have output stored under different name
+     """ this function is used to correct scenario keys wenn reading data, since some models have output stored under different name """
     
     result = scenario.copy()
     
@@ -25,28 +25,35 @@ def CorrectScenario( measure='DM', **scenario ):
 
 ## data keys inside likelihood files
 def KeyLocal( model='Piro18/wind', measure='DM', axis='P' ):
+    """ model key in likelihood_file_local """
     return '/'.join( [ model, measure, axis ] )
 
 def KeyMilkyWay( model='JF12', measure='DM', axis='P', redshift=0.0  ):
+    """ MW model key in likelihood_file_galaxy """
     return '/'.join( [ 'MilkyWay', model, measure, axis ] )
 
 def KeyHost( redshift=0.0, model='Rodrigues18/smd', measure='DM', axis='P' ):
+    """ host model key in likelihood_file_galaxy """
     return '/'.join( [ 'Host', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
 
 def KeyInter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
+    """ intervening model key in likelihood_file_galaxy """
     return '/'.join( [ 'Intervening', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
 
 def KeyIGM( redshift=0.1, model='primordial', typ='far', nside=2**2, measure='DM', axis='P' ):  ## nside=2**6
+    """ model key in likelihood_file_IGM """
 #    print( measure, model, redshift )
     model_ = CorrectScenario( measure=measure, IGM=[model] )['IGM'][0]
 #    print(model_)
     return '/'.join( [ model_, typ, str(nside), measure, '%.4f' % np.round( redshift, redshift_accuracy ), axis ] )
 
 def KeyRedshift( population='flat', telescope='none', axis='P' ):
+    """ model key in likelihood_file_redshift """
     return '/'.join( [ population, telescope, axis] )
 
 #def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Local=['Piro18/uniform_JF12'] ):
 def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
+    """ scenario key in likelihood_file_Full """
     scenario_ = CorrectScenario( measure, **scenario )
     models = []
     for region in regions:
@@ -66,6 +73,7 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
 '''
 
 def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', **scenario ):
+    """ scenario key in likelihood_file_telescope """
     scenario_ = CorrectScenario( measure, **scenario )
     models = [ telescope, population ]
     for region in regions:
@@ -78,6 +86,7 @@ def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', 
 
 ## wrapper to write hdf5 files consistently
 def Write2h5( filename='', datas=[], keys=[] ):
+    """ conveniently write datas to keys in filename. overwrite existing entries"""
     if type(keys) is str:
         sys.exit( 'Write2h5 needs list of datas and keys' )
     with SimpleFlock( 'flock_writeh5', 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
@@ -99,6 +108,26 @@ def Write2h5( filename='', datas=[], keys=[] ):
 FRB_dtype = [('ID','U9'),('DM','f'),('DM_gal','f'), ('RM','f'),('tau','f'),('host_redshift','f'), ('tele','U10')]
 
 def GetFRBcat( telescopes=None, RM=None, tau=None, print_number=False ):
+    """
+    read all FRBs in FRBcat, downloaded to frbcat_file
+
+    Parameters
+    ----------
+    telescopes : list
+        list of considered telescopes, FRBs of other telescopes are ignored
+    RM : boolean
+        if True, only return FRBs observed with RM
+    tau : boolean
+        if True, only return FRBs observed with temproal broadening
+    print_number : boolean
+        if True, print number of extractet FRBs
+
+    Returns
+    -------
+    FRBs : array
+        structured numpy.array containing values listed in FRBcat
+
+    """
     ### read all FRBs from FRBcat
     ###  optional: read only those FRBs observed by telescope with RM and tau
     ###  print_number:True print number of extracted FRBs 
@@ -127,13 +156,20 @@ def GetFRBcat( telescopes=None, RM=None, tau=None, print_number=False ):
     return np.array( FRBs, dtype=FRB_dtype )
 
 
-## short wrapper to decode byte-strings read from FRBcat
 def decode( string, dtype='U' ):
+    """ short wrapper to decode byte-strings read from FRBcat """
     if 'f' in dtype:
         if 'null' in string:
             return float('NaN')
         return float(string)
     return string
+
+def GetFRBsMeasures( measure='DM', FRBs=None ):
+    """ returns measures of FRBs in FRBcat read with GetFRBcat() """
+    if measure == 'DM':
+        return FRBs['DM']-FRBs['DM_gal']
+    elif measure == 'RM':
+        return FRBs['RM']
 
 
 
