@@ -170,5 +170,14 @@ def NInter( z_s=6.,   ## source redshift
     return np.cumsum( nInter( z_s, r=r, n=n, comoving=comoving) )
 
 
+def LogMeanStd( data, axis=None ):
+    """ return logarithmic mean and standard deviation such to easily plot with pyplot.errorbar"""
+    mean_log = np.mean( np.log10( data ), axis=axis )
+    mean = 10.**mean_log
+    std = np.std( np.log10( data ), axis=axis )
+    dev = np.array( [ mean - 10.**(mean_log-std), 10.**(mean_log+std) - mean ] )
+    if len(dev.shape) == 1:
+        dev = dev.reshape( [2,1] )
+    return mean, dev
 
 

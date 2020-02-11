@@ -405,7 +405,7 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
 
     return Ps, redshift_range
 
-def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1., population='flat', telescope='None', force=False ):
+def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1., population='flat', telescope='None', measureable=True, force=False ):
     """
     compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
 
@@ -419,6 +419,8 @@ def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1
         assumed cosmic population of FRBs
     telescope: string,
         instrument to observe DMs, RMs and taus
+    measureable : boolean
+        if True, cut the likelihood function of RM below RM_min, which cannot be observed by terrestial telescopes due to foregrounds from Galaxy and the ionosphere
     """
 
     result = np.zeros( len(DMs) )
@@ -434,7 +436,8 @@ def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1
         ## estimate likelihood of scenario based on RM, using the redshift likelihood as a prior
         ##  sum results of all possible redshifts
         P, x = GetLikelihood_Full( redshift=redshift, measure='RM', force=force, **scenario )
-        P, x = LikelihoodMeasureable( x=x, P=P, min=RM_min )
+        if measureable:
+            P, x = LikelihoodMeasureable( x=x, P=P, min=RM_min )
 #        P, x = LikelihoodMeasureable( min=RM_min, typ='RM', redshift=redshift, density=False, **scenario )
 #        res = P_redshift*dredshift * Likelihoods( measurements=RMs, P=P, x=x )
 #        print( res)
@@ -618,16 +621,19 @@ get_likelihood = {
 }
 
 def GetLikelihood( region='IGM', model='primordial', density=True, **kwargs ):
-    ## wrapper to read any likelihood function written to file
+    """ wrapper to read likelihood function of any individual model written to file """
     if region == 'IGM' and kwargs['measure'] == 'RM':
         kwargs['absolute'] = True
-    P, x = get_likelihood[region]( model=model, **kwargs )
+    try:
+        P, x = get_likelihood[region]( model=model, **kwargs )
+    except:
+        sys.exit( ("model %s in region %s is not available" % ( model, region ), "kwargs", kwargs ) )
     if not density:
         P *= np.diff(x)
     return P, x
 
 def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, **scenario ):
-
+    """ wrapper to either read full likelihood of scenario from file of to compute it in case it is not there or when forced """
     if len(scenario) == 1:
         region, model = scenario.copy().popitem()
 #        print('only %s' % model[0], end=' ' )

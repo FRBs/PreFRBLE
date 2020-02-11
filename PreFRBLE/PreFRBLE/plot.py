@@ -1,11 +1,14 @@
 import numpy as np, matplotlib.pyplot as plt
 from matplotlib.cm import rainbow
+from matplotlib.cm import  YlGn as cmap_gradient
 from matplotlib import colors, cm
 #from PreFRBLE.convenience import *
 from PreFRBLE.label import *
 from PreFRBLE.likelihood import *
 #from PreFRBLE.physics import *
 #from PreFRBLE.parameter import *
+
+
 
 ## Convenient Plot functions
 def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, color='blue', show_values=False, ax=None, posterior=False ):
@@ -19,6 +22,7 @@ def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, co
         ax.set_ylabel(r"$L/L_{\rm max}$")
     else:
         ax.set_ylabel(r"$\mathcal{B}/\mathcal{B}_{\rm max}$")
+#        ax.set_ylabel(r"$\mathcal{B} = \prod P / P_0$")
     if show_values: ## print value on top of each bar, .... doesnt work ...
         shift = y.max()/y.min()/10
         for xx, yy in zip( x, y ):
@@ -52,15 +56,16 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
 
         
     if posterior:
-        P_label = r"$L/L_{\rm max}$"
+        P_label = r"L/L_{\rm max}"
     else:
-        P_label = r"$\mathcal{B}/\mathcal{B}_{\rm max}$"
+        P_label = r"\mathcal{B}/\mathcal{B}_{\rm max}"
+#        P_label = r"\mathcal{B} = \prod P / P_0"
     if graphs:
 #        noise =  N_bayes**-0.5 if N_bayes > 1 else 0
         for b, Y in zip( bayes/bayes.max(), y ):
             ax.plot( x, b, label=Y )
 #            ax.errorbar( x, b, yerr=b*noise, label=Y )
-        ax.set_ylabel( P_label, fontdict={'size':18 }  )
+        ax.set_ylabel( "$%s$" % P_label, fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         ax.set_yscale('log')
         ax.legend()
@@ -68,7 +73,8 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
     if plane:
         levels = np.linspace( np.log10(P_min), 0, 200 )
 #        levels = np.linspace( np.log10(P_min), 0, -np.log10(P_min) )
-        colors = Rainbow( levels )
+        colors = Gradient( levels )
+        Colorbar( levels, label=r"log$_{10}\left( %s \right)$" % P_label, ax=ax, cmap=cmap_gradient )
         levels = 10.**levels
         
         xx = np.arange( len(x) ) if type(x[0]) is str else x
@@ -76,7 +82,6 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
         xy_x, xy_y = np.meshgrid( xx, yy )
         
         ax.contourf( xy_x, xy_y, bayes/bayes.max(), levels, colors=colors )
-        Colorbar( np.log10(levels), label=r"log$_{10}\left( %s \right)$" % P_label, ax=ax )
         ax.set_ylabel( ylabel, fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         if type(x[0]) is str:
@@ -192,7 +197,7 @@ def Colorbar( x=np.linspace(0,1,2), label=None, labelsize=16, cmap=rainbow, ax=N
         cb.set_label(label=label, size=labelsize)
 
 def Rainbow( x=np.linspace(0,1,2), min=None, max=None ):
-    ### return rainbow colors for 1D array x
+    """ return rainbow colors for 1D array x """
     if min is None:
         min = x.min()
     if max is None:
@@ -202,6 +207,18 @@ def Rainbow( x=np.linspace(0,1,2), min=None, max=None ):
     x_ = x - min
     x_ /= max
     return rainbow( x_ )
+
+def Gradient( x=np.linspace(0,1,2), min=None, max=None ):
+    """ return rainbow colors for 1D array x """
+    if min is None:
+        min = x.min()
+    if max is None:
+        max = x.max()-min
+    else:
+        max -= min
+    x_ = x - min
+    x_ /= max
+    return cmap_gradient( x_ )
 
 def AllSidesTicks( ax ):
     """ puts ticks without labels on top and right axis, identical to those on bottom and left axis, respectively """

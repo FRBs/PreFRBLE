@@ -7,7 +7,7 @@ from PreFRBLE.parameter import *
 
 
 def CorrectScenario( measure='DM', **scenario ):
-     """ this function is used to correct scenario keys wenn reading data, since some models have output stored under different name """
+    """ this function is used to correct scenario keys wenn reading data, since some models have output stored under different name """
     
     result = scenario.copy()
     
