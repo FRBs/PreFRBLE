@@ -9,12 +9,12 @@ from PreFRBLE.physics import *
 
 ## mathematical likelihood operations
 
-def Histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False ):
+def Histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False, weights=None ):
     """ wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function """
     if log:
         if range is not None:
             range = np.log10(range)
-        h, x = np.histogram( np.log10(data), bins=bins, range=range )
+        h, x = np.histogram( np.log10(data), bins=bins, range=range, weights=weights )
         x = 10.**x
         h = h.astype('float64')
         if density:
@@ -22,7 +22,7 @@ def Histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False
     else:
         if range is None:
             range = ( np.min(data), np.max(data) )
-        h, x = np.histogram( data, bins=bins, range=range, density=density )
+        h, x = np.histogram( data, bins=bins, range=range, density=density, weights=weights )
     return h, x
 
 

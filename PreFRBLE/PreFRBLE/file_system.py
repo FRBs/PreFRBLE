@@ -1,5 +1,6 @@
 ## main working folder
 root = '/data/PreFRBLE/'
+root = '/work/stuf315/PreFRBLE/'
 
 root_likelihood  = root + 'likelihood/'
 root_results = root + 'results/'

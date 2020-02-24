@@ -260,7 +260,7 @@ def first(iterable, condition = lambda x: True):
 
 
 ## wrapper to show time needed for some function
-
+'''
 def HowLong( f, *args, print_additional='', **kwargs ):
     """ wrapper to print the time needed to call function f """
     t0 = time()
@@ -268,3 +268,4 @@ def HowLong( f, *args, print_additional='', **kwargs ):
     t = time() - t0
     print( "Running %s took %i minutes and %.1f seconds %s" % (f.__name__, t//60, t%60, print_additional ) )
     return ret
+'''

@@ -19,7 +19,7 @@ scenario = {
 force=True  
 
 models_IGMF = [ 'alpha%i-3rd' % i for i in range(1,10) ]
-f_IGMs = np.arange(0.2,0.9,0.1)
+f_IGMs = np.arange(0.5,0.9,0.1)
 
 
 ## first, test with limited set of IGMF models
