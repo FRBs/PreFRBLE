@@ -32,7 +32,7 @@ def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, co
     lim = ax.get_ylim()
     ax.set_ylim(lim[0]*0.5, lim[1]*2)
 
-def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None, posterior=False ):
+def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None, posterior=False ):
     """
     Plot 2D distribution of Bayes factors for joint analysis of two parameters x and y
     
@@ -44,12 +44,13 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
         values of second parameter
     bayes : 2D array-like, shape( N_y, N_x )
         bayes factors for tuples of (x,y)
-    N_bayes : integer
-        number of events that enter bayes. Used to plot Poisson noise. ## depreciated, since Poisson noise is misleading error estimate for bayes
+    dev : 2D array-like, shape( N_y, N_x ), optional
+        deviation of bayes factors, only plotted for graphs=True
+    N_bayes : integer ## depreciated
     graphs : boolean
         indicate whether results should be drawn as graphs 
     plane : boolean
-        indicate whether results should be drawn as plane
+        indicate whether results should be drawn as plane. Do no use together with graphs
     """
     if ax is None:
         fig, ax = plt.subplots()
@@ -61,10 +62,11 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
         P_label = r"\mathcal{B}/\mathcal{B}_{\rm max}"
 #        P_label = r"\mathcal{B} = \prod P / P_0"
     if graphs:
-#        noise =  N_bayes**-0.5 if N_bayes > 1 else 0
-        for b, Y in zip( bayes/bayes.max(), y ):
-            ax.plot( x, b, label=Y )
-#            ax.errorbar( x, b, yerr=b*noise, label=Y )
+        for ib, (b, Y) in enumerate( zip( bayes/bayes.max(), y ) ):
+            if len(dev) > 0:
+                ax.errorbar( x, b, yerr=b*dev[ib], label=Y )
+            else:
+                ax.plot( x, b, label=Y )
         ax.set_ylabel( "$%s$" % P_label, fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         ax.set_yscale('log')
@@ -93,7 +95,16 @@ def PlotBayes2D( bayes=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e
 
 
 
-def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
+def PlotLikelihood( x=np.arange(2), P=np.ones(1), dev=None, density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
+    """
+    Plot likelihood function
+
+    Parameters
+    ----------
+    dev : array-like, len(P), optional
+        give the relative deviation of the plotted likelihood
+
+    """
     if cumulative:
         density = False
     if ax is None:
@@ -108,7 +119,10 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), density=True, cumulative=False
             PP = 1 - PP
     if log:
         ax.loglog()
-    ax.plot( xx, PP, **kwargs)
+    if dev is not None:
+        ax.errorbar( xx, PP, yerr=dev*PP, **kwargs  )
+    else:
+        ax.plot( xx, PP, **kwargs)
 
     if measure is not None:
         ax.set_xlabel( UnitLabel( measure ) , fontdict={'size':16 } )
@@ -138,14 +152,14 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwa
     if ax is None:
         fig, ax = plt.subplots()
 
-    avg, std = [], []
+    avg, dev = [], []
     for iz, (redshift, color) in enumerate( zip(redshift_bins, Rainbow(redshift_bins)) ):
         P, x = GetLikelihood_Full( measure=measure, redshift=redshift, **scenario )
         a, s = Likelihood2Expectation( P=P, x=x, density=True, log=True )
         avg.append(a)
-        std.append(s)
+        dev.append(s)
     ## plot arrorbars, starting at the indicated position
-    erb = ax.errorbar( redshift_bins[errorstart:], avg[errorstart:], np.array(std).reshape([len(avg),2])[errorstart:].transpose(), **kwargs ) 
+    erb = ax.errorbar( redshift_bins[errorstart:], avg[errorstart:], np.array(dev).reshape([len(avg),2])[errorstart:].transpose(), **kwargs ) 
     ## draw the full line with the same kwargs
     kwargs_ = kwargs.copy()
     ## however, remove those kwargs that do not work with plt.plot
@@ -157,21 +171,21 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwa
         color = lines.get_color()
         kwargs_['color'] = color
     ax.plot( redshift_bins, avg, **kwargs_ )
-#    ax.errorbar( redshift_bins, avg, avg - 10**(np.log10(avg)-std), **kwargs ) 
+#    ax.errorbar( redshift_bins, avg, avg - 10**(np.log10(avg)-dev), **kwargs ) 
     ax.set_yscale('log')
     ax.set_xlabel('redshift', fontdict={'size':16 })
     ax.set_ylabel('%s / %s' % (label_measure[measure], units[measure]), fontdict={'size':16 } )
 
 
 
-def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', population='SMD', ax=None, scenario={}, force=False, **kwargs ):
+def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', population='SMD', ax=None, scenario={}, force=False, dev=True, **kwargs ):
     ### Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
     if ax is None:
         fig, ax = plt.subplots()
-    P, x = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, **scenario )
+    P, x, dev_ = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, dev=True, **scenario )
     if measureable:
-        P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
-    PlotLikelihood( x, P, measure=measure, ax=ax, **kwargs )
+        P, x, dev_ = LikelihoodMeasureable( P=P, x=x, dev=dev_, min=measure_range[measure][0], max=measure_range[measure][1] )
+    PlotLikelihood( x, P, dev=dev_ if dev else [], measure=measure, ax=ax, **kwargs )
     plt.tight_layout()
 
 def PlotContributions( measure='DM', redshift=0.1, **scenario ):

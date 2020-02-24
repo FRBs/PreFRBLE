@@ -40,6 +40,7 @@ labels = {
 
 
     ### telescopes
+    'None': 'intrinsic',
     'ASKAP_incoh': 'ASKAP',
     'CHIME':'CHIME',
     'Parkes':'Parkes',

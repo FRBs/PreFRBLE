@@ -4,6 +4,20 @@ redshift_accuracy = 4 # number deciamls for redshift accuracy  (to prevent numer
 ## regions along LoS
 regions = ['MW', 'IGM', 'Inter', 'Host', 'Local']
 linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Local':"-."}
+N_sample = {  ## !!! hardcoded, find a better solution
+    'MW' : 1,
+    'IGM' : 49152,
+    'Host' : 10**7,
+    'Inter' : 1,
+    'Local' : 10**6,
+    'population' : 10**7
+}
+
+N_population = {
+    'SFR': { 'None': 10**7, 'ASKAP_incoh' : 9176 , 'CHIME' : 118822, 'Parkes': 134915 },
+    'coV': { 'None': 10**7, 'ASKAP_incoh' : 23757, 'CHIME' : 112447, 'Parkes': 122008 },
+    'SMD': { 'None': 10**7, 'ASKAP_incoh' : 32976, 'CHIME' : 401226, 'Parkes': 396802 },
+}
 
 
 ## available models for all regions
@@ -26,4 +40,5 @@ populations_FRBpoppy = { 'SFR':'sfr', 'SMD':'smd', 'coV':'vol_co' }
 
 telescopes_FRBcat = { 'ASKAP':'ASKAP', 'ASKAP_incoh':'ASKAP', 'CHIME':'CHIME/FRB', 'Parkes':'parkes' }
 telescopes_FRBcat_inv = {v: k for k, v in telescopes_FRBcat.items()}
+
 
