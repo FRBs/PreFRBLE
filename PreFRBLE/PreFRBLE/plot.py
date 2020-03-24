@@ -10,11 +10,16 @@ from PreFRBLE.likelihood import *
 
 
 
-## Convenient Plot functions
-def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, color='blue', show_values=False, ax=None, posterior=False ):
+############################################################################
+############################ PLOT FIGURES ##################################
+############################################################################
+
+def PlotBayes( x=np.ones(1), bayes=np.ones(1), title=None, label=None, width=1.0, color='blue', show_values=False, ax=None, posterior=False ):
+    """ Barplot of bayes factor or posterior likelihood for values of parameter x """
+
     if ax is None:
         fig, ax = plt.subplots( )
-    ax.bar(x, y/y.max(), width, color=color )
+    ax.bar(x, bayes/bayes.max(), width, color=color )
     ax.set_title( title )
     ax.set_yscale('log')
     ax.set_xlabel( label )
@@ -24,9 +29,9 @@ def PlotBayes( x=np.ones(1), y=np.ones(1), title=None, label=None, width=1.0, co
         ax.set_ylabel(r"$\mathcal{B}/\mathcal{B}_{\rm max}$")
 #        ax.set_ylabel(r"$\mathcal{B} = \prod P / P_0$")
     if show_values: ## print value on top of each bar, .... doesnt work ...
-        shift = y.max()/y.min()/10
-        for xx, yy in zip( x, y ):
-            ax.text( xx, yy*shift, str(yy), color=color, fontweight='bold' )
+        shift = bayes.max()/bayes.min()/10
+        for xx, b in zip( x, bayes ):
+            ax.text( xx, b*shift, str(b), color=color, fontweight='bold' )
 
     ### assure that there are ticks at y axis
     lim = ax.get_ylim()
@@ -97,12 +102,23 @@ def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', 
 
 def PlotLikelihood( x=np.arange(2), P=np.ones(1), dev=None, density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
     """
-    Plot likelihood function
+    Plot likelihood function P(x) of measure
 
     Parameters
     ----------
     dev : array-like, len(P), optional
         give the relative deviation of the plotted likelihood
+    cumulative : boolean, 1, -1
+        if 1: plot cumulative likelihood starting from lowest x
+        if -1: plot cumulative likelihood starting from highest x
+        else: plot differential likelihood
+    log : boolean
+        indicates whether x is log-scaled
+    density : boolean
+        indicates whether P is probability density, i. e. sum(P*diff(x)) = 1, otherwise assume P is probability, i. e. sum(P) = 1 (Note that renormalization to 1 is not required)
+    measure : string
+        name of measure x
+    **kwargs :  for plt.plot ( or plt.errorbar, if dev is not None )
 
     """
     if cumulative:
@@ -137,6 +153,20 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), dev=None, density=True, cumula
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
 def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, force=False, **kwargs ):
+    """ 
+    Plot likelihood function of measure in different redshift_bins, expected for LoS scenario
+
+    Parameters
+    ----------
+    measurable : boolean
+        if True, plot likelihood only for values accesible to telescope, renormalized to 1
+    colorbar : boolean
+        if True, plot a colorbar indicating colors for different values of redshift
+    force : boolean
+        if True, force computation of the full likelihood functions for measure in scenario
+    **kwargs : for PlotLikelihood
+
+    """
     if ax is None:
         fig, ax = plt.subplots()
     for z, color in zip( redshift_bins, Rainbow(redshift_bins) ):
@@ -149,6 +179,19 @@ def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=Fal
 
 
 def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwargs ):
+    """
+    Plot average value of measure as function of redshift. 
+    Estimate and deviation are obtained from likelihood function expected in LoS scenario
+
+    Parameter
+    ---------
+    errorstart : int
+        indicate first value for which to plot errorbar
+    **kwargs : for ax.errorbar
+
+
+    """
+
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -179,7 +222,18 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwa
 
 
 def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', population='SMD', ax=None, scenario={}, force=False, dev=True, **kwargs ):
-    ### Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
+    """ 
+    Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
+    
+    Parameters
+    ----------
+    measureable : boolean
+       if True, only plot likelihood for values of measure that can actually be observed by telescope
+    dev : boolean
+       indicate whether to plot deviation of likelihood function
+    **kwargs : for PlotLikelihood
+
+    """
     if ax is None:
         fig, ax = plt.subplots()
     P, x, dev_ = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, dev=True, **scenario )
@@ -189,6 +243,7 @@ def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', populati
     plt.tight_layout()
 
 def PlotContributions( measure='DM', redshift=0.1, **scenario ):
+    """ Plot likelihood function for contributions to measure from all regions in scenario for LoS ending at redshift """
     fig, ax = plt.subplots()
     for region in regions:
         models = scenario.get( region )
@@ -200,9 +255,26 @@ def PlotContributions( measure='DM', redshift=0.1, **scenario ):
     plt.title( "redshift = %.1f" % redshift )
     plt.tight_layout()
 
+
+############################################################################
+######################## CONVENIENT FUNCTIONS ##############################
+############################################################################
+
+
 def Colorbar( x=np.linspace(0,1,2), label=None, labelsize=16, cmap=rainbow, ax=None ):
-    ### plot colorbar at side of plot
-    ###  x: 1D array of data to be represented by rainbow colors
+    """
+    plot colorbar at right side of figure
+
+    Parameter
+    ---------
+    x : 1D numpy array
+        values to be represented by colors
+    cmap : cmap object
+        determines colorscale used in colorbar
+    ax : axis of pyplot.figure, required
+        colorbar is added to this axis
+
+    """
     sm = plt.cm.ScalarMappable( cmap=cmap, norm=plt.Normalize(vmin=x.min(), vmax=x.max() ) )
     sm._A = []
     cb = plt.colorbar(sm, ax=ax )
@@ -223,7 +295,7 @@ def Rainbow( x=np.linspace(0,1,2), min=None, max=None ):
     return rainbow( x_ )
 
 def Gradient( x=np.linspace(0,1,2), min=None, max=None ):
-    """ return rainbow colors for 1D array x """
+    """ return gradient colors for 1D array x """
     if min is None:
         min = x.min()
     if max is None:
@@ -248,7 +320,7 @@ def AllSidesTicks( ax ):
 
 
 def get_steps( N=2, x=np.array([1.,10.]), log=False):
-    ''' calculate N equal (logarithmic) steps from x[0] to x[1] '''
+    """ calculate N equal (logarithmic) steps from x[0] to x[1] """
     if log:
         xx = np.log10(x)
     else:
@@ -259,26 +331,38 @@ def get_steps( N=2, x=np.array([1.,10.]), log=False):
     return x_step
 
 def mean( x=10.**np.arange(2), log=False, **kwargs ):
-    ### wrapper to calulate the mean of log-scaled values
+    """ wrapper to calulate the mean of log-scaled values """
     if log:
         return 10.**np.mean( np.log10( x ), **kwargs )
     else:
         return np.mean( x, **kwargs )
 
 def coord2normal(x=10.**np.arange(2), lim=(1,10), log=False):
-    ''' transforms coordinate x in (logarithmic) plot to normal coordinates (0,1) '''
+    """ transforms coordinate x in (logarithmic) plot to normal coordinates (0,1) """
     if log:
         return (np.log10(x) - np.log10(lim[0]))/(np.log10(lim[1]) - np.log10(lim[0]))
     else:
         return ( x - lim[0] )/( lim[1] - lim[0] )
 
 
-def PlotLimit( ax=None, x=[1,1], y=[1,2], label='', lower_limit=True, arrow_number=2, arrow_length=0.1, arrow_width=0.005, linewidth=4, shift_text_vertical=0, shift_text_horizontal=0 ):
-    ### plot upper/lower limit 
-    ###  ax: graph to plot limit on
-    ###  x,y: one is list of two separate coordinates: define range of limit in one dimension, ons is list of identical coordinates: define limit and limited axis 
-    ###  lower_limit=True: plot lower limit, else: plot upper limit
-    ###  shift_text_vertical/horizontal: adjust position of text label
+def PlotLimit( ax=None, x=(1,1), y=(1,2), label='', lower_limit=True, arrow_number=2, arrow_length=0.1, arrow_width=0.005, linewidth=4, shift_text_vertical=0, shift_text_horizontal=0 ):
+    """
+    Plot line with arrows, indicating upper/lower limit 
+
+    Parameter
+    ---------
+    ax: axis of pyplot.figure (required)
+        figure where to plot limit
+    x,y: 2-tuple
+        indicate range along x and y.
+        one has to be a tuple of identical values, indicating the limit on that axis
+        the other defines the start and end of the limit line
+    lower_limit : boolean
+        if True, plot lower limit (arrows pointing to higher values), else: plot upper limit
+    shift_text_vertical/horizontal: float
+        adjust position of text label along x and y. otherwise placed on center of line. 
+        x and y are in unit of the tick values
+    """
     xlog = ax.get_xscale() == 'log'
     ylog = ax.get_yscale() == 'log'
     limit_x, limit_y = int( x[1] == x[0] ), int( y[1] == y[0] )

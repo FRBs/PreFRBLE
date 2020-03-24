@@ -3,12 +3,37 @@ from PreFRBLE.likelihood import LikelihoodMeasureable, GetLikelihood_Full, GetLi
 from PreFRBLE.physics import measure_range
 
 
-## sample distributions
+
+
+############################################################################
+######################## SAMPLE DISTRIBUTIONS ##############################
+############################################################################
+
+
+def SampleLogFlat( lo=1., hi=2., N=10 ):
+    """ returns an N-sample of a log-flat distribution from lo to hi """
+    lo = np.log10(lo)
+    hi = np.log10(hi)
+    return 10.**np.random.uniform( lo, hi, N )
+
+
 
 def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
-    ### return sample of N according to likelihood function P(x) 
-    ###  P is renormalized probability density, i. e. sum(P*dx)=1
-    ###  log: indicates whether x is log-scaled
+    """
+    returns sample of size N according to likelihood function P(x) 
+
+    Parameter
+    ---------
+    P, x : array-like
+        renormalized probability density function, i. e. sum(P*np.diff(x))=1
+    log: indicates whether x is log-scaled
+
+    Output
+    ------
+
+    res : list of N values, distributed according to P(x)
+
+    """
     Pd = P*np.diff(x)
     if np.round( np.sum(Pd), 4) != 1:
         sys.exit( "function is not normalized, %f != 1" % (np.sum(Pd)) )
@@ -31,7 +56,11 @@ def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
 
 
 def FakeFRBs( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', measureable=True, **scenario):
-    ### returns measures of a fake survey of N FRBs expected to be observed by telescope assuming population & scenario for LoS
+    """ returns measures of a fake survey of N FRBs expected to be observed by telescope assuming population & scenario for LoS
+
+    optional: reduce range to measureable values and renormalize to 1 (should be used e. g. to reproduce a set of FRB with observed RM )
+
+    """
     FRBs = { 'redshift':np.array([])}
     for m in measures:
         FRBs[m] = np.array([])
@@ -53,32 +82,5 @@ def FakeFRBs( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', m
     
     return FRBs
 
-
-### !!! MEASURES DON'T CARE FOR SOURCE REDSHIFT, WORTHLESS !!! ###
-def FakeFRBs_old( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', **scenario):
-    ### returns measures of a fake survey of N FRBs expected to be observed by telescope assuming population & scenario for LoS
-
-
-    FRBs = {}
-    for measure in measures:
-        ## load likelihood function 
-        if measure == 'RM':
-            ## due to the ionosphere foreground, only allow for RM > 1 rad m^-2 to be observed
-            P, x = GetLikelihood_Telescope( telescope=telescope, population=population, **scenario )
-            P, x = LikelihoodMeasureable( x=x, P=P, min=RM_min )
-#            P, x = LikelihoodMeasureable( min=RM_min, measure=measure, telescope=telescope, population=population, **scenario )
-        else:
-            P, x = GetLikelihood_Telescope( measure=measure, telescope=telescope, population=population, **scenario )
-    
-        ##   sample likelihood function
-        FRBs[measure] = RandomSample( N, P, x )
-    
-    return FRBs
-
-def uniform_log( lo=1., hi=2., N=10 ):
-    ## returns an N-sample of a log-flat distribution from lo to hi
-    lo = np.log10(lo)
-    hi = np.log10(hi)
-    return 10.**np.random.uniform( lo, hi, N )
 
 
