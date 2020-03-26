@@ -34,6 +34,7 @@ If you make changes to the source code in PreFRBLE/PreFRBLE, these can be applie
 
 bash install_PreFRBLE.sh  
 
+General usgae is explained in the jupyter notebooks found in notebooks/
 
 
 ----------------------------------------------------------------------------------------------
