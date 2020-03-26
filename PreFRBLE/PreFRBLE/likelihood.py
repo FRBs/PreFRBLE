@@ -7,9 +7,11 @@ from PreFRBLE.parameter import *
 from PreFRBLE.physics import *
 
 
-## mathematical likelihood operations
+############################################################################
+############### MATHEMATICAL LIKELIHOOD STANDARD OPERATIONS ################
+############################################################################
 
-def Histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False, weights=None ):
+def Likelihood( data=np.arange(1,3), bins=10, range=None, density=None, log=False, weights=None ):
     """ wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function """
     if log:
         if range is not None:
@@ -25,6 +27,13 @@ def Histogram( data=np.arange(1,3), bins=10, range=None, density=None, log=False
         h, x = np.histogram( data, bins=bins, range=range, density=density, weights=weights )
     return h, x
 
+Histogram = Likelihood ## old name, replace everywhere
+
+def LikelihoodDeviation( P=[], x=[], N=1 ):
+    """ compute relative deviation (Poisson noise) of likelihood function of individual model obtained from sample of N events """
+    res =  ( P*np.diff(x)*N )**-0.5
+    res[ np.isinf(res) + np.isnan(res)] = 0
+    return res
 
 
 def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
@@ -284,6 +293,118 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
         dev[np.isnan(dev)] = 0
 
     return P, x, dev
+
+
+def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True, sigma=1, std_nan=np.nan ):
+    """
+    computes the estimate value and deviation from likelihood function P (must be normalized to 1)
+
+
+    Parameters
+    --------
+    P : array_like, shape(N)
+        likelihood function
+    x : array_like, shape(N+1)
+        range of bins in likelihood function
+    log : boolean
+        indicates, whether x is log-scaled
+    density : boolean
+        indicates whether P is probability density, should always be true
+    sigma : integer
+        indicates the sigma range to be returned. must be contained in sigma_probability in physics.py
+    std_nan
+        value returned in case that P=0 everywhere. if not NaN, should reflect upper limit
+
+    Returns
+    -------
+    expect: float
+        expectation value of likelihood function
+    deviation: numpy_array, shape(1,2)
+        lower and uppper bound of sigma standard deviation width
+        is given such to easily work with plt.errorbar( 1, expect, deviation )
+
+    """
+    if log:
+        x_log = np.log10(x)
+        x_ = x_log[:-1] + np.diff(x_log)/2
+    else:
+        x_ = x[:-1] + np.diff(x)/2
+    ## need probability function, i. e. sum(P)=1
+    if density:
+        P_ = P*np.diff(x)
+    else:
+        P_ = P
+    if np.round( np.sum( P_ ), 2) != 1:
+        if np.all(P_ == 0):
+            return std_nan #, [std_nan,std_nan]
+        sys.exit( 'P is not normalized' )
+    
+    ## mean is probabilty weighted sum of possible values
+    expect = np.sum( x_*P_ )
+    if log:
+        expect = 10.**expect
+
+    ## exactly compute sigma range
+    P_cum = np.cumsum( P_ )
+    lo =   expect - first( zip(x, P_cum), condition= lambda x: x[1] > 0.5*(1-sigma_probability[sigma]) )[0]
+    hi = - expect + first( zip(x[1:], P_cum), condition= lambda x: x[1] > 1- 0.5*(1-sigma_probability[sigma]) )[0]
+    
+    ## if z is clearly within one bin, hi drops negative value
+    #hi = np.abs(hi)
+
+#    x_std = np.sqrt( np.sum( P_ * ( x_ - expect)**2 ) ) ### only works for gaussian, so never
+
+    deviation = np.array([lo,hi]).reshape([2,1])
+
+    return expect, deviation
+
+
+def WeighBayesFactor( B=1, w=1 ):
+    """ Weigh the significance of Bayes factor B with weight w"""
+    w_log = np.log10(w)
+    return 10.**( np.log10(B) * (1+np.abs(w_log))**(1 - 2*(w_log<0) - (w_log==0) )  ) 
+
+def BayesFactor( P1=0, P2=0, dev1=0, dev2=0, which_NaN=False, axis=None ):
+    """
+    compute Bayes factor = P1/P2 between two scenarios
+
+    Parameters
+    ----------
+    dev1/2 : array-like
+        deviation of likelihoods P1/2, used to compute deviation of Bayes factor according to error propagation
+    which_NaN : boolean
+        if True, print indices of likelihoods, for which Bayes factor is NaN or infinite
+    axis : integer
+        if -1: return array of individual Bayes factor for each pair of P1 and P2
+        if None: return total Bayes factor = product of individual Bayes factors
+        else : return array of total Bayes factor copmuted along axis
+
+    Returns
+    -------
+    bayes, dev : array-like
+        Bayes factor and deviation
+
+    """
+    bayes =  P1/P2
+    NaN = np.isnan(bayes) + np.isinf(bayes)
+    dev = np.sqrt( dev1*2 + dev2**2 )
+    if np.any(NaN):
+        print( "%i of %i returned NaN. Ignore in final result" %( np.sum(NaN), len(DMs) ) )
+        dev[NaN] = 0
+        if which_NaN:
+            ix, = np.where( NaN )
+            print(ix)
+
+    if axis is not -1:
+        bayes = np.nanprod(bayes, axis=axis)
+        dev = np.sqrt( np.sum( dev*2, axis=axis ) )
+    return bayes, dev
+    
+
+
+############################################################################
+#################### MATHEMATICAL LIKELIHOOD OPERATIONS ####################
+############################################################################
 
 
 def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, **kwargs ):
@@ -664,148 +785,80 @@ def BayesFactorCombined( DMs=[], RMs=[], zs=None, scenario1={}, scenario2={}, ta
 #    return np.prod( LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario1, taus=taus ) / LikelihoodCombined( DMs=DMs, RMs=RMs, scenario=scenario2, taus=taus ) )
     '''
 
-def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True, sigma=1, std_nan=np.nan ):
-    """
-    computes the estimate value and deviation from likelihood function P (must be normalized to 1)
 
+############################################################################
+######################## READ LIKELIHOODS FROM FILE ########################
+############################################################################
+
+def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False ):
+    """ 
+    read likelihood function of contribution of IGM model to measure for LoS to redshift from likelihood_file_IGM
 
     Parameters
-    --------
-    P : array_like, shape(N)
-        likelihood function
-    x : array_like, shape(N+1)
-        range of bins in likelihood function
-    log : boolean
-        indicates, whether x is log-scaled
-    density : boolean
-        indicates whether P is probability density, should always be true
-    sigma : integer
-        indicates the sigma range to be returned. must be contained in sigma_probability in physics.py
-    std_nan
-        value returned in case that P=0 everywhere. if not NaN, should reflect upper limit
-
-    Returns
-    -------
-    expect: float
-        expectation value of likelihood function
-    deviation: numpy_array, shape(1,2)
-        lower and uppper bound of sigma standard deviation width
-        is given such to easily work with plt.errorbar( 1, expect, deviation )
-
-    """
-    if log:
-        x_log = np.log10(x)
-        x_ = x_log[:-1] + np.diff(x_log)/2
-    else:
-        x_ = x[:-1] + np.diff(x)/2
-    ## need probability function, i. e. sum(P)=1
-    if density:
-        P_ = P*np.diff(x)
-    else:
-        P_ = P
-    if np.round( np.sum( P_ ), 2) != 1:
-        if np.all(P_ == 0):
-            return std_nan #, [std_nan,std_nan]
-        sys.exit( 'P is not normalized' )
+    ----------
+    nside : integer
+        number of pixels of the healpix tesselation of the sky used to determine LoS in the constrained volume.
+        for cosmological distance, redshift >= 0.1, use nside = 4
+    absolue : boolean
+        if True : return logarithmic likelihood of absolute value
+        if False : return likelihood of value if negative values are allowed
+    typ : str, 'far' or 'near', depreciated
+        indicates whether to use LoS in constrained volume ('near') or cosmological LoS ('far')
     
-    ## mean is probabilty weighted sum of possible values
-    expect = np.sum( x_*P_ )
-    if log:
-        expect = 10.**expect
-
-    ## exactly compute sigma range
-    P_cum = np.cumsum( P_ )
-    lo =   expect - first( zip(x, P_cum), condition= lambda x: x[1] > 0.5*(1-sigma_probability[sigma]) )[0]
-    hi = - expect + first( zip(x[1:], P_cum), condition= lambda x: x[1] > 1- 0.5*(1-sigma_probability[sigma]) )[0]
-    
-    ## if z is clearly within one bin, hi drops negative value
-    #hi = np.abs(hi)
-
-#    x_std = np.sqrt( np.sum( P_ * ( x_ - expect)**2 ) ) ### only works for gaussian, so never
-
-    deviation = np.array([lo,hi]).reshape([2,1])
-
-    return expect, deviation
-
-
-def WeighBayesFactor( B=1, w=1 ):
-    """ Weigh the significance of Bayes factor B with weight w"""
-    w_log = np.log10(w)
-    return 10.**( np.log10(B) * (1+np.abs(w_log))**(1 - 2*(w_log<0) - (w_log==0) )  ) 
-
-def BayesFactor( P1=0, P2=0, dev1=0, dev2=0, which_NaN=False, axis=None ):
     """
-    compute 
-
-    """
-    bayes =  P1/P2
-    NaN = np.isnan(bayes) + np.isinf(bayes)
-    dev = np.sqrt( dev1*2 + dev2**2 )
-    if np.any(NaN):
-        print( "%i of %i returned NaN. Ignore in final result" %( np.sum(NaN), len(DMs) ) )
-        dev[NaN] = 0
-        if which_NaN:
-            ix, = np.where( NaN )
-            print(ix)
-
-    if axis is not -1:
-        bayes = np.nanprod(bayes, axis=axis)
-        dev = np.sqrt( np.sum( dev*2, axis=axis ) )
-    return bayes, dev
-    
-
-
-## GetLikelihood functions
-
-def LikelihoodDeviation( P=[], x=[], N=1 ):
-    """ compute relative deviation (Poisson noise) of likelihood function of individual model obtained from sample of N events """
-    res =  ( P*np.diff(x)*N )**-0.5
-    res[ np.isinf(res) + np.isnan(res)] = 0
-    return res
-
-## read likelihood function from file
-def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False ):
     if redshift < 0.1:
         typ='near'
     with h5.File( likelihood_file_IGM, 'r' ) as f:
 #        print( [KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) for axis in ['P','x']] )
-        return [f[ KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
+        return [f[ KeyIGM( redshift=redshift, model=model, typ='far' if redshift >= 0.1 else 'near', nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
 
 
 
 def GetLikelihood_Redshift( population='SMD', telescope='None', dev=False ):
+    """ read likelihood function of host redshift for population observed by telescope from likelihood_file_reshift (dev is True: also return deviation) """
     with h5.File( likelihood_file_redshift, 'r' ) as f:
         res =  [ f[ KeyRedshift( population=population, telescope=telescope, axis=axis ) ][()] for axis in ['P', 'x'] ]
     if dev:
         res.append( LikelihoodDeviation(  P=res[0], x=res[1], N=N_population[population][telescope] ) )
     return res
 
-def GetLikelihood_Host_old( redshift=0., model='JF12', measure='DM' ):
+def GetLikelihood_HostShift( redshift=0., model='JF12', measure='DM' ):
+    """ 
+    read likelihood function of contribution of host model to measure for FRBs at redshift from likelihood_file_galaxy
+    used for individual galaxy models, computed assuming redshift=0. likelihood function is shifted to redshift by LikelihoodShift
+    """
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
 #        print([ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) for axis in ['P', 'x'] ] )
 #        return [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
         P, x = [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] for axis in ['P', 'x'] ]
         return LikelihoodShift( x=x, P=P, shift=(1+redshift)**scale_factor_exponent[measure] )
 
-def GetLikelihood_Host( redshift=0., model='Rodrigues18/smd', measure='DM' ):
+def GetLikelihood_Host( redshift=0., model='Rodrigues18', measure='DM' ):
+    """ 
+    read likelihood function of contribution of host model to measure for FRBs at redshift from likelihood_file_galaxy
+    used for galaxy models computed for individual redshift
+    """
     try:
         with h5.File( likelihood_file_galaxy, 'r' ) as f:
             return [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
     except:
-        return GetLikelihood_Host_old( redshift, model,  measure )
+        return GetLikelihood_HostShift( redshift, model,  measure )
 
 
 def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
+    """ read likelihood function of contribution of intervening galaxy model to measure for LoS to redshift from likelihood_file_galaxy """
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
         return [ f[ KeyInter( redshift=redshift, model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
 def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
+    """ read likelihood function of contribution of local environment model to measure for FRB at redshift from likelihood_file_local """
     with h5.File( likelihood_file_local, 'r' ) as f:
 #        return [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
         P, x = [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
         return LikelihoodShift( x=x, P=P, shift=(1+redshift)**scale_factor_exponent[measure] )
 
 def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
+    """ read likelihood function of contribution of Milky Way model to measure from likelihood_file_galaxy """
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
         return [ f[ KeyMilkyWay( model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
@@ -820,7 +873,29 @@ get_likelihood = {
 }
 
 def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, **kwargs ):
-    """ wrapper to read likelihood function of any individual model written to file """
+    """ 
+    read likelihood function of any individual model of region written to file
+    
+    Parameter
+    ---------
+    density : boolean
+        if True: return probability density function ( 1 = sum( P * diff(x) ) )
+        else: return proability function ( 1 = sum(P) )
+    **kwargs for the GetLikelihood_* function of individual regions
+
+    Returns
+    -------
+    P, x(, dev) :  array-like
+        likelihood P (N-array) and range x (N+1-array), renormalized such that 1 = sum( P * diff(x) )
+        optional: relative deviation dev (N-array) of likelihood P
+
+    Examples
+    --------
+
+    >>> P, x, dev =GetLikelihood_Telescope( telescope='CHIME', population='coV', measure='RM', dev=True, **{ 'IGM':['primordial'], 'host':['Rodrigues18'], 'local':['Piro18/wind'] } )
+    >>> plt.errorbar( x[1:] - np.diff(x)/2, P, yerr=P*dev )
+
+    """
     if region == 'IGM' and kwargs['measure'] == 'RM':
         kwargs['absolute'] = True
     try:
@@ -836,11 +911,41 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, **
     
 
 def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, **scenario ):
-    """ wrapper to either read full likelihood of scenario from file of to compute it in case it is not there or when forced """
+    """ 
+    read likelihood function of measure for FRBs at redsift in full LoS scenario
+
+    Parameter
+    ---------
+    force : boolean
+        if False: try to read full likelihood function computed already
+        if True: force new computation of full likelihood from individual models and write to likelihood_file_Full
+    dev : boolean
+        if True: also return deviation of full likelihood, according to propagation of errors of individual likelihoods
+    scenario : dictionary
+        contains 'region':[models] considered for the full LoS
+        multiple models for same 'region' are summed, multiple regions are convolved
+
+    Returns
+    -------
+    P, x(, dev) :  array-like
+        likelihood P (N-array) and range x (N+1-array), renormalized such that 1 = sum( P * diff(x) )
+        optional: relative deviation dev (N-array) of likelihood P
+
+    Examples
+    --------
+
+    >>> P, x, dev = GetLikelihood_Full( redshift=1.0, measure='RM', dev=True, **{ 'IGM':['primordial'], 'host':['Rodrigues18'], 'local':['Piro18/wind'] } )
+    >>> plt.errorbar( x[1:] - np.diff(x)/2, P, yerr=P*dev )
+    
+    """
+
+    ## if only one model in scenario, return likelihood of that model
     if len(scenario) == 1:
         region, model = scenario.copy().popitem()
 #        print('only %s' % model[0], end=' ' )
         return GetLikelihood( region=region, model=model[0], redshift=redshift, measure=measure, dev=dev )
+
+    ## try to read from file, it may have been computed already
     if not force:
         axes = ['P','x']
         if dev:
@@ -851,9 +956,37 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, **sc
                 return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) ][()] for axis in axes ]
         except:
             pass
+    ## compute and write to file
     return LikelihoodFull( measure=measure, redshift=redshift, dev=dev, **scenario )
 
 def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, dev=False, **scenario ):
+    """ 
+    read likelihood function of measure to be observed by telescope in case of population
+
+    Parameter
+    ---------
+    force : boolean
+        if False: try to read full likelihood function computed already
+        if True: force new computation of full likelihood from individual models and write to likelihood_file_Full
+    dev : boolean
+        if True: also return deviation of full likelihood, according to propagation of errors of individual likelihoods
+    scenario : dictionary
+        contains 'region':[models] considered for the full LoS
+        multiple models for same 'region' are summed, multiple regions are convolved
+
+    Returns
+    -------
+    P, x(, dev) :  array-like
+        likelihood P (N-array) and range x (N+1-array), renormalized such that 1 = sum( P * diff(x) )
+        optional: relative deviation dev (N-array) of likelihood P
+
+    Examples
+    --------
+
+    >>> P, x, dev = GetLikelihood_Telescope( telescope='CHIME', population='coV', measure='RM', dev=True, **{ 'IGM':['primordial'], 'host':['Rodrigues18'], 'local':['Piro18/wind'] } )
+    >>> plt.errorbar( x[1:] - np.diff(x)/2, P, yerr=P*dev )
+    
+    """
     if not force:
         axes = ['P','x']
         if dev:
@@ -868,11 +1001,26 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
 
 
 
-### procedures for fast parallel computation of combined likelihood functions
+
+############################################################################
+################## FAST COMPUTE LIKELIHOODS FOR SCENARIO ###################
+############################################################################
+
+
 
 def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=8, force=False ):
-    ### compute full likelihood functions for all redshifts and measures in scenario as well as expectations for all telescopes and populations
-    ### for RM, also investigate all models_IGMF with identical DM, SM and tau as model_IGM in scenario
+    """ 
+    compute all full & telescope likelihoods for scenario, considering all redshifts, telescopes and populations. 
+    For RM, also consider all models_IGMF, which do not differe in their DM, SM and tau
+
+    Parameters
+    ----------
+    N_processes : integer (doesn't work)
+        number of parallel processes
+    force : boolean
+        if True: force new computation of likelihood functions
+
+    """
     msrs = measures[:]
     msrs.remove('RM')
 
@@ -903,7 +1051,7 @@ def ComputeFullLikelihood( scenario={}, models_IGMF=models_IGM[3:], N_processes=
 
 def ComputeTelescopeLikelihood( scenario={}, telescopes=telescopes, populations=populations, force=False ):
     """ 
-    compute full likelihood function for all redshifts and measures in scenario as well as expectations for all telescopes and populations
+    compute full likelihood function for LoS scenario for all redshifts and measures, as well as likelihood for all telescopes and populations
     """
     msrs = measures[:]
     msrs.remove('RM')
