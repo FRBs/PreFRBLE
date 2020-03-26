@@ -1,16 +1,16 @@
-----------------------------------------------------------------------------
---PreFRBLE------------------------------------------------------------------
-----------------------------------------------------------------------------
---Predict Fast Radio Bursts to obtain model Likelihood Estimates------------
-----------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+-------------------------------------PrEFRBLE-------------------------------------
+----------------------------------------------------------------------------------
+-Probability Estimates for Fast Radio Bursts to obtain model Likelihood Estimates-
+----------------------------------------------------------------------------------
 
-PreFRBLE is a python package build to compare observations of Fast Radio Bursts (FRBs) to theoretical predictions. To this end, it predicts the contribution to FRB observables from the different regions along the line of sight. The results for different contributors are combined to predict the full measurement, considering several possible scenarios. Finally, observations are weighed against the probability of the full measurement to obtain the model likelihood.
+PrEFRBLE is a python package build to compare observations of Fast Radio Bursts (FRBs) to theoretical predictions. To this end, it predicts the contribution to FRB observables from the different regions along the line of sight. The results for different contributors are combined to predict the full measurement, considering several possible scenarios. Finally, observations are weighed against the probability of the full measurement to obtain the model likelihood.
 
 
 
-----------------------------------------------------------------------------
---INSTALLATION--------------------------------------------------------------
-----------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+-----------------------------------INSTALLATION-----------------------------------
+----------------------------------------------------------------------------------
 
 If you want to install PreFRBLE in an existing environment, simply run
 
@@ -37,9 +37,9 @@ bash install_PreFRBLE.sh
 
 
 
-----------------------------------------------------------------------------
---MODELS--------------------------------------------------------------------
-----------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+--------------------------------------MODELS--------------------------------------
+----------------------------------------------------------------------------------
 
 
 List of models that are currently included:
@@ -48,8 +48,12 @@ Source:
  - magnetar, uniform / stellar wind environment (Piro & Gaensler 2018)
 
 Host Galaxy:
+ - ensemble of axisymmetric galaxies (Rodrigues et al. 2016 & 2018)
  - MW-like spiral galaxy, (NE2001 & JF12)
  - starburst dwarf galaxy, (Heesen et al. 2011)
+
+Itervening Galaxies:
+ - ensemble of axisymmetric galaxies (Rodrigues et al. 2016 & 2018)
 
 Inter Galactic Medium:
  - constrained MHD models with primordial / astrophysical origin of intergalactic magnetic fields, (Hackstein et al. 2018, Vazza et al. 2018)
