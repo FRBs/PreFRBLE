@@ -9,6 +9,7 @@
 *.vi
 *~
 *.sass-cache
+*checkpoint.ipynb
 
 # OS or Editor folders
 .DS_Store
