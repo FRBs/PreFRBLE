@@ -16,7 +16,7 @@ def Likelihood( data=np.arange(1,3), bins=10, range=None, density=None, log=Fals
     if log:
         if range is not None:
             range = np.log10(range)
-        h, x = np.histogram( np.log10(data), bins=bins, range=range, weights=weights )
+        h, x = np.histogram( np.log10(np.abs(data)), bins=bins, range=range, weights=weights )
         x = 10.**x
         h = h.astype('float64')
         if density:
