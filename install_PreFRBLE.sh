@@ -14,8 +14,12 @@ source $DIR/bin/activate
 cp -r $PACKAGE $DIR
 ## make necessary changes to filespace
 sed -i  -e "s-/data/PreFRBLE-$BASE_DIR-g" $DIR/PreFRBLE/PreFRBLE/file_system.py  ## use - as separator to easily replace /
-##  and install
+##  INSTALL
 pip install $DIR/PreFRBLE
+
+
 
 ## PreFRBLE is now updated according to changes in $PACKAGE
 ## simply restart jupyter notebook to use new version
+
+

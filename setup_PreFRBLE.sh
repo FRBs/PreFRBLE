@@ -21,9 +21,23 @@ then
 
     source $DIR/bin/activate
 
+    ### IF INSTALLATION FAILS
+    ###   due to missing lapack/blas package:
+    ###       install openBLAS locally:
+    cd $DIR && git clone https://github.com/xianyi/OpenBLAS
+    cd OpenBLAS && make FC=gfortran && make PREFIX=$DIR install
+    export LD_LIBRARY_PATH=$DIR/OpenBLAS/lib:$LD_LIBRARY_PATH  ## also copy to .source_activate
+    export BLAS=$DIR/OpenBLAS/libopenblas.a
+    export ATLAS=$DIR/OpenBLAS/libopenblas.a
+    pip3 install numpy cython  ## install critical packages
+    pip3 install pandas
+    ###       if following still fails duw to missing lapack/blas, simply run bash install_PreFRBLE.sh  it will work now
+    
     ## install python packages used not by PreFRBLE, but by notebooks. If this fails, continue with install_PreFRBLE.sh
     pip3 install numpy cython ipython jupyter scipy pandas statsmodels    
 fi
+
+
 
 ## install PreFRBLE
 bash $BASE_DIR/install_PreFRBLE.sh
