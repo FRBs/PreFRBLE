@@ -14,12 +14,13 @@ def CorrectScenario( measure='DM', **scenario ):
     ## combine primordial and alpha results, former for DM, SM and tau, latter for RM (is identical to primordial, which was also computed)
     if 'RM' in measure:
         pass
-    ## rhis is not needed right now
-    #    if scenario['IGM'] == ['primordial']:
-    #        result['IGM'] = ['alpha1-3rd']
+        if 'IGM' in scenario:
+            if 'primordial' in scenario['IGM'][0]:
+                result['IGM'] = [scenario['IGM'][0].replace('primordial','alpha1-3rd')]
     else:
-        if 'IGM' in scenario and 'alpha' in scenario['IGM'][0]:
-                result['IGM'] = ['primordial']
+        if 'IGM' in scenario:
+            if 'alpha' in scenario['IGM'][0]:
+                result['IGM'] = [scenario['IGM'][0].replace(scenario['IGM'][0][:10], 'primordial' )]
     return result
 
 
