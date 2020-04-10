@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/bash -x
 #SBATCH --job-name=PreFRBLE
-#SBATCH --output=log/batch_PreFRBLE.out
+#SBATCH --output=log/log_%x%j.out
+#SBATCH --error=log/log_%x%j.err
 #SBATCH --mail-user=stefan.hackstein@hs.uni-hamburg.de
 #SBATCH --partition=std
 #SBATCH --nodes=1
@@ -10,11 +11,11 @@
 #SBATCH --mail-type=END
 #SBATCH --export=NONE
 
-cd $WORK/PreFRBLE
+cd /work/stuf315/PreFRBLE
 
 source .activate_PreFRBLE
 
-ipython ComputeFullLikelihoods.py
+IGMF=$1
 
-## PreFRBLE is now updated according to changes in $PACKAGE
-## simply restart jupyter notebook to use new version
+ipython ComputeFullLikelihoods.py $IGMF --ipython-dir=tmp
+

@@ -8,7 +8,7 @@ N_sample = {  ## !!! hardcoded, find a better solution
     'MW' : 1,
     'IGM' : 49152,
     'Host' : 10**7,
-    'Inter' : 1,
+    'Inter' : 10**7,
     'Local' : 10**6,
     'population' : 10**7
 }

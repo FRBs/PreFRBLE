@@ -84,21 +84,33 @@ def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', 
     return '/'.join( models )
 
 
+from time import sleep
+
 ## wrapper to write hdf5 files consistently
 def Write2h5( filename='', datas=[], keys=[] ):
     """ conveniently write datas to keys in filename. overwrite existing entries"""
     if type(keys) is str:
         sys.exit( 'Write2h5 needs list of datas and keys' )
-    with SimpleFlock( 'flock_writeh5', 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
+#    with SimpleFlock( 'flock_writeh5', 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
 #    with SimpleFlock( filename, 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
-        with h5.File( filename, 'a' ) as f:
-            for data, key in zip( datas, keys ):
-                try:
-                    f.__delitem__( key )
-                except:
-                    pass
-                f.create_dataset( key, data=data  )
-
+    tries = 0
+    while tries < 30:
+        try:
+            with h5.File( filename, 'a' ) as f:
+                for data, key in zip( datas, keys ):
+                    try:
+                        f.__delitem__( key )
+                    except:
+                        pass
+                    f.create_dataset( key, data=data  )
+            break
+        except:
+            sleep(3e-2)
+            tries += 1
+            pass
+    else:
+        print(  "couldn't write ", keys )
+        sys.exit(1)
 
 
 ## Read FRBcat

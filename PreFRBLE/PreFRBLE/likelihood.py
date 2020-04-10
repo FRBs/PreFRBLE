@@ -204,7 +204,7 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     Parameters
     ----------
     shrink : boolean
-         if True, reduce number of bins of result to number of bins in f (will get big otherwise)
+         if True, reduce number of bins of result to standard number of bins
     log : boolean
          indicates whether x_f and x_g are log-scaled
     absolute : boolean
@@ -250,9 +250,8 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     if renormalize:
         P *= renormalize / np.sum( P*np.diff(x) )
     if shrink:
-        return LikelihoodShrink( P, x, bins=len(f), log=log )
-    else:
-        return P, x
+        P, x = LikelihoodShrink( P, x, log=log )
+    return P, x
 
 
 
@@ -283,10 +282,10 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
         return P, x
     
     P, x, dev = Ps[0], xs[0], devs[0]
-    for P_, x_, dev_ in zip( Ps[1:], xs[1:], devs[1:] ):
-        dev0, x__ = LikelihoodConvolve( (dev*P)**2, x, P_**2, x_, renormalize=False, **kwargs )
-        dev1, x__ = LikelihoodConvolve( P**2, x, (dev_*P_)**2, x_, renormalize=False, **kwargs )
-        P, x = LikelihoodConvolve( P, x, P_, x_, **kwargs )
+    for P1, x1, dev1 in zip( Ps[1:], xs[1:], devs[1:] ):
+        dev0, x__ = LikelihoodConvolve( (dev*P)**2, x.copy(), P1**2, x1.copy(), renormalize=False, **kwargs )
+        dev1, x__ = LikelihoodConvolve( P**2, x.copy(), (dev1*P1)**2, x1.copy(), renormalize=False, **kwargs )
+        P, x = LikelihoodConvolve( P, x, P1, x1, **kwargs )
         dev = np.sqrt(dev0 + dev1) / P
         
         ## where P=0 returns NaN. replace by 0 to not affect other data
