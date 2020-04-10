@@ -152,7 +152,7 @@ def PlotLikelihood( x=np.arange(2), P=np.ones(1), dev=None, density=True, cumula
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
 
-def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, force=False, **kwargs ):
+def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, force=False, alpha=0.5, **kwargs ):
     """ 
     Plot likelihood function of measure in different redshift_bins, expected for LoS scenario
 
@@ -173,7 +173,7 @@ def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=Fal
         P, x = GetLikelihood_Full( redshift=z, measure=measure, force=force, **scenario )
         if measureable:
             P, x = LikelihoodMeasureable( P=P, x=x, min=measure_range[measure][0], max=measure_range[measure][1] )
-        PlotLikelihood(P=P, x=x, ax=ax, measure=measure, color=color, **kwargs )
+        PlotLikelihood(P=P, x=x, ax=ax, measure=measure, color=color, alpha=alpha, **kwargs )
     if colorbar:
         Colorbar( redshift_bins, label='redshift', ax=ax)
 
