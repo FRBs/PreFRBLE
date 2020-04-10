@@ -4,22 +4,22 @@ from PreFRBLE.likelihood import ComputeFullLikelihood, ComputeTelescopeLikelihoo
 
 scenario = {
     'IGM' : ['primordial'],
-    'Host' : ['Rodrigues18/smd'],
-    'Inter' : ['Rodrigues18'],
+    'Host' : ['Rodrigues18'],
+#    'Inter' : ['Rodrigues18'],
     'Local' : ['Piro18/wind'],
 }
-
+'''
 scenario = {
     'IGM' : ['primordial'],
     'Host': ['Heesen11/dirty'],
     'Local': ['Piro18/wind'], 
 }
-
+'''
 ## force new computation of existing results
 force=True  
 
 models_IGMF = [ 'alpha%i-3rd' % i for i in range(1,10) ]
-f_IGMs = np.arange(0.5,0.9,0.1)
+f_IGMs = np.arange(0.3,0.91,0.1)
 
 
 ## first, test with limited set of IGMF models
@@ -30,6 +30,6 @@ for model in models_IGMF:
         tmp = scenario.copy()
         tmp['IGM'] = ["%s_C%.0f" % (model, 1000*f_IGM) ]
         print( tmp )
-        ComputeTelescopeLikelihood( scenario=scenario, force=force)
+#        ComputeTelescopeLikelihood( scenario=scenario, force=force)
 
 

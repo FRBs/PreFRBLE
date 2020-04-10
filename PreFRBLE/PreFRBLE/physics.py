@@ -147,10 +147,10 @@ def PriorInter( z_s=6.0,   ## source redshift
             n=1 , ## Mpc^-3 number density of galaxies
             comoving = False ## indicates whether n is comoving
            ):
-    """ compute the prior likelihood of galaxies at redshift z to intersect the LoS (integrand of Macquart & Koay 2013 Eq. 33) """
+    """ compute the prior likelihood of galaxies at redshift z to intersect the LoS (integrand of Macquart & Koay 2013 Eq. 33). All units in Mpc """
     z = redshift_bins[redshift_bins<=z_s]
     if (type(n) is not np.ndarray) or comoving:
-        ## for comoving number density, consider cosmic expansion
+        ## for constant or comoving number density, consider cosmic expansion
         n = n * (1+z)**3
     return np.pi* r**2 * n * HubbleDistance(z) / (1+z)
 
@@ -159,7 +159,7 @@ def nInter( z_s=6.0,   ## source redshift
             n=1 , ## Mpc^-3 number density of galaxies
             comoving = False ## indicates whether n is comoving
            ):
-    """ compute the average number of LoS intersected by a galaxy at redshift z (Macquart & Koay 2013 Eq. 33) """
+    """ compute the average number of LoS intersected by a galaxy at redshift z (Macquart & Koay 2013 Eq. 33). All units in Mpc """
     dz = np.diff(redshift_range[redshift_range<=z_s*1.000001]) ## small factor required to find correct bin, don't know why it fails without...
     pi_z = PriorInter( z_s, r=r, n=n, comoving=comoving)
     return  pi_z * dz
@@ -170,7 +170,7 @@ def NInter( z_s=6.,   ## source redshift
             n=1 , ## number density of galaxies
             comoving = False ## indicates whether n is comoving
            ):
-    """ returns total intersection likelihood for source at all redshift bins up to z_s """
+    """ returns total intersection likelihood for source at all redshift bins up to z_s. All units in Mpc """
     return np.cumsum( nInter( z_s, r=r, n=n, comoving=comoving) )
 
 
