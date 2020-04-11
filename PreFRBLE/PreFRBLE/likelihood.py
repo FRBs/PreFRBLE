@@ -197,7 +197,7 @@ def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True )
     return LikelihoodsAdd( [P, np.zeros(len(x))], [x,x], devs=devs, shrink=bins, log=log, renormalize=np.sum( P*np.diff(x) ) )
 
 
-def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1 ):
+def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1, square=False ):
     """
     compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
 
@@ -210,6 +210,8 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     absolute : boolean
         indicate whether likelihood describes absolute value (possibly negative)
         if True, allow to values to cancel out by assuming same likelihood for positive and negative values
+    square : boolean
+        if True, compute squared convolution, i. e. sqrt_cvl = sum f_1^2 f_2^2 dy^2
 
     Returns
     -------
@@ -239,11 +241,12 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
             in_ = np.where( x == M_x[i][j] )[0][0]
             out = np.where( x == M_x[i+1][j+1] )[0][0]
     ##   and add probability to convolved probability in that range
-            P[in_:out] += M_p[i][j]
+#            P[in_:out] += M_p[i][j]  
+            P[in_:out] += ( M_p[i][j] * (M_x[i+1][j+1] - M_x[i][j]) )**(1+square)
     if absolute:
     ##   add negative probability to positive
         x = x[ x>=0] ### this makes x[0]=0, which is bad for log scale...
-        x[0] = x[1]**2/x[2] ### rough, but okay... this is very close to and definitely lower than x[1] and the lowest part does not affect much the rest of the function. The important parts of te function are reproduced well
+        x[0] = x[1]**2/x[2] ### rough, but okay... this is very close to and definitely lower than x[1] and the lowest part does not affect much the rest of the function. The important parts of the function are reproduced well
 #        x = np.append( x_min, x[1+len(x)/2:] )
         P = np.sum( [ P[:int(len(P)/2)][::-1], P[int(len(P)/2):] ], axis=0 )
     ## renormalize full integral
@@ -283,8 +286,8 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
     
     P, x, dev = Ps[0], xs[0], devs[0]
     for P1, x1, dev1 in zip( Ps[1:], xs[1:], devs[1:] ):
-        dev0, x__ = LikelihoodConvolve( (dev*P)**2, x.copy(), P1**2, x1.copy(), renormalize=False, **kwargs )
-        dev1, x__ = LikelihoodConvolve( P**2, x.copy(), (dev1*P1)**2, x1.copy(), renormalize=False, **kwargs )
+        dev0, x__ = LikelihoodConvolve( (dev*P), x.copy(), P1.copy(), x1.copy(), square=True, renormalize=False, **kwargs )
+        dev1, x__ = LikelihoodConvolve( P.copy(), x.copy(), (dev1*P1), x1.copy(), square=True, renormalize=False, **kwargs )
         P, x = LikelihoodConvolve( P, x, P1, x1, **kwargs )
         dev = np.sqrt(dev0 + dev1) / P
         
