@@ -274,7 +274,7 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
 
     Returns
     -------
-    P, x, (dev) : values, bin-ranges, (deviation) of convolved likelihood function
+    P, x, (dev) : values, bin-ranges, (deviation) of renormalized convolved likelihood function 
     
     """
 
@@ -286,14 +286,15 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
     for P1, x1, dev1 in zip( Ps[1:], xs[1:], devs[1:] ):
         devA  = np.sum(P1*np.diff(x1)) *  dev * P
         devB  = dev1 * P1 * np.sum( P*np.diff(x) )
-        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), **kwargs )
+        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), renormalize=False, **kwargs )
         dev = np.sqrt(devA**2 + devB**2) / P
         
         ## where P=0 returns NaN. replace by 0 to not affect other data
         dev[np.isnan(dev)] = 0
 
-    ## return pdf, not probability
+    ## return renormalized pdf, not probability
     P /= np.diff(x)
+    P /= np.sum(P*np.diff(x))
 
     return P, x, dev
 
