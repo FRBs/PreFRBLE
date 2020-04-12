@@ -116,6 +116,7 @@ def PlotLikelihood( P=np.ones(1), x=np.arange(2), dev=None, density=True, cumula
         indicates whether x is log-scaled
     density : boolean
         indicates whether P is probability density, i. e. sum(P*diff(x)) = 1, otherwise assume P is probability, i. e. sum(P) = 1 (Note that renormalization to 1 is not required)
+        ### chane to: indicates whether to plot density or probability (P always given as density)
     measure : string
         name of measure x
     **kwargs :  for plt.plot ( or plt.errorbar, if dev is not None )

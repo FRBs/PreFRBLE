@@ -100,7 +100,7 @@ def LikelihoodShift( x=[], P=[], shift=1. ):
 
 def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None, dev_weights=None, renormalize=False ):
     """
-    add together several likelihoos functions
+    add together several likelihood functions
 
     Parameters
     ----------
@@ -169,7 +169,7 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
             elif len(ix) == 1:
                 P[ib] += w * f[ix]  ## add if one
                 if len(devs)>0:
-                    dev[ib] += (w * f[ix])**2 * ( devs[i_f][ib]**2 + dev_weights[i_f]**2 )
+                    dev[ib] += (w * f[ix])**2 * ( devs[i_f][ix]**2 + dev_weights[i_f]**2 )
             else:  ## compute average of contributing bins
     ##     get corresponding ranges
                 x_ = x_f[np.append(ix,ix[-1]+1)]
@@ -197,7 +197,7 @@ def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True )
     return LikelihoodsAdd( [P, np.zeros(len(x))], [x,x], devs=devs, shrink=bins, log=log, renormalize=np.sum( P*np.diff(x) ) )
 
 
-def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1, square=False ):
+def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1 ):
     """
     compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
 
@@ -210,8 +210,6 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     absolute : boolean
         indicate whether likelihood describes absolute value (possibly negative)
         if True, allow to values to cancel out by assuming same likelihood for positive and negative values
-    square : boolean
-        if True, compute squared convolution, i. e. sqrt_cvl = sum f_1^2 f_2^2 dy^2
 
     Returns
     -------
@@ -240,9 +238,10 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     ##   for each entry, find the corresponding range in M_x
             in_ = np.where( x == M_x[i][j] )[0][0]
             out = np.where( x == M_x[i+1][j+1] )[0][0]
-    ##   and add probability to convolved probability in that range
+    ##   and add P * dx to convolved probability in that range
 #            P[in_:out] += M_p[i][j]  
-            P[in_:out] += ( M_p[i][j] * (M_x[i+1][j+1] - M_x[i][j]) )**(1+square)
+#            P[in_:out] += ( M_p[i][j] * (M_x[i+1][j+1] - M_x[i][j]) )
+            P[in_:out] += ( M_p[i][j] * np.diff(x[in_:out+1]) )
     if absolute:
     ##   add negative probability to positive
         x = x[ x>=0] ### this makes x[0]=0, which is bad for log scale...
@@ -278,21 +277,23 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
     P, x, (dev) : values, bin-ranges, (deviation) of convolved likelihood function
     
     """
-    if len(devs) == 0:
-        P, x = Ps[0], xs[0]
-        for P_, x_ in zip( Ps[1:], xs[1:] ):
-            P, x = LikelihoodConvolve( P, x, P_, x_, **kwargs )
-        return P, x
-    
+
+    ## work with probability, not pdf
+    for i in range(len(Ps)):
+        Ps[i] *= np.diff(xs[i])
+
     P, x, dev = Ps[0], xs[0], devs[0]
     for P1, x1, dev1 in zip( Ps[1:], xs[1:], devs[1:] ):
-        dev0, x__ = LikelihoodConvolve( (dev*P), x.copy(), P1.copy(), x1.copy(), square=True, renormalize=False, **kwargs )
-        dev1, x__ = LikelihoodConvolve( P.copy(), x.copy(), (dev1*P1), x1.copy(), square=True, renormalize=False, **kwargs )
-        P, x = LikelihoodConvolve( P, x, P1, x1, **kwargs )
-        dev = np.sqrt(dev0 + dev1) / P
+        devA  = np.sum(P1*np.diff(x1)) *  dev * P
+        devB  = dev1 * P1 * np.sum( P*np.diff(x) )
+        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), **kwargs )
+        dev = np.sqrt(devA**2 + devB**2) / P
         
         ## where P=0 returns NaN. replace by 0 to not affect other data
         dev[np.isnan(dev)] = 0
+
+    ## return pdf, not probability
+    P /= np.diff(x)
 
     return P, x, dev
 
@@ -842,9 +843,12 @@ def GetLikelihood_Host( redshift=0., model='Rodrigues18', measure='DM' ):
     """
     try:
         with h5.File( likelihood_file_galaxy, 'r' ) as f:
-            return [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
+            res = [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
     except:
-        return GetLikelihood_HostShift( redshift, model,  measure )
+        res = GetLikelihood_HostShift( redshift, model,  measure )
+    if len(res[0]) != 100:  ### !!! change all P in file to bin=100
+        res = LikelihoodShrink( *res )
+    return res
 
 
 def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
