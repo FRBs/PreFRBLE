@@ -522,6 +522,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
     for region in regions:
         model = scenario.get( region )
         if model:
+#            print('full', region, model )
             P, x, P_dev = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, N_inter=N_inter, dev=True  )
             Ps.append( P )
             xs.append( x )
@@ -538,6 +539,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
     ## write to file
     Write2h5( likelihood_file_Full, [P,x,P_dev], [ KeyFull( measure=measure, redshift=redshift, axis=axis, N_inter=N_inter, **scenario ) for axis in ['P', 'x', 'dev']] )
 
+    
     res = [P,x]
     if dev:
         res.append(P_dev)
@@ -572,7 +574,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
     return P,x
 '''
 
-def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, dev=False, N_inter=N_inter, **scenario ):
+def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, dev=False, N_inter=False, **scenario ):
     """
     return the likelihood function for measure expected to be observed by telescope in the given scenario
     P, x and dev are written to likelihood_file_telescope
@@ -917,8 +919,6 @@ def GetLikelihood_Host( redshift=0., model='Rodrigues18', measure='DM' ):
             res = [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
     except:
         res = GetLikelihood_HostShift( redshift, model,  measure )
-    if len(res[0]) != 100:  ### !!! change all P in file to bin=100
-        res = LikelihoodShrink( *res )
     return res
 
 
