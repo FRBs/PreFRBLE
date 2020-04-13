@@ -130,7 +130,7 @@ def Jackknife( values, function=np.mean, axis=None ):
 
 
 def AngularDiameterDistance(z_o=0., z_s=1.):
-    """ compute angular diameter distance between redshift of observer z_o and source z_s """
+    """ compute angular diameter distance in Gpc between redshift of observer z_o and source z_s """
 
     ## make sure both are arrays
     redshift_observer = z_o if type(z_o) is np.ndarray else np.array([z_o])
@@ -149,20 +149,35 @@ def AngularDiameterDistance(z_o=0., z_s=1.):
 def Deff( z_s=np.array(1.0), ## source redshift
          z_L=np.array(0.5)   ## redshift of lensing material
         ):
-    """ compute ratio of angular diameter distances of lense at redshift z_L for source at redshift z_s (see Eq. 15 in Macquart & Koay 2013) """
+    """ compute ratio of angular diameter distances in Gpc of lense at redshift z_L for source at redshift z_s (see Eq. 15 in Macquart & Koay 2013) """
     D_L = AngularDiameterDistance( 0, z_L )
     D_S = AngularDiameterDistance( 0, z_s )
     D_LS = AngularDiameterDistance( z_L, z_s )   
     return D_L * D_LS / D_S
 
 
-def ScatteringTime( SM=None,  ## kpc m^-20/3, effective SM in the observer frame
-                   redshift=0.0, ## of the scattering region, i. e. of effective lense distance
-                   D_eff = 1., # Gpc, effective lense distance
-                   lambda_0 = 0.23, # m, wavelength
-                  ):
-    """ computes scattering time in ms of FRB observed at wavelength lambda_0, Marcquart & Koay 2013 Eq.16 b """
-    return 1.8e5 * lambda_0**4.4 / (1+redshift) * D_eff * SM**1.2
+def ScatteringTime( SM=None, redshift=0.0, D_eff = 1., lambda_0 = 0.23 ):
+    """ 
+    compute scattering time in ms of FRB observed at wavelength lambda_0 (Marcquart & Koay 2013 Eq.16 b)
+    
+    Parameter
+    ---------
+    SM : float or array-like
+        effective scattering measure in the observer frame in kpc m^-20/3
+    redshfit: float or array-like
+        redshift of lensing material
+    D_eff : float or array-like
+        effective lense distance in Gpc
+    lambda : float
+        wavelength in m
+
+    Return
+    ------
+    tau : float or array-like
+        scattering time in ms
+
+    """
+    return 1.8e8 * lambda_0**4.4 / (1+redshift) * D_eff * SM**1.2
     
 def Freq2Lamb( nu=1. ):
     """ transform frequency in Hz to wavelength in meters """
@@ -176,14 +191,14 @@ HubbleParameter = lambda z: co.hubble_parameter(z).in_cgs()
 def HubbleDistance( z ):
     return (speed_of_light / HubbleParameter(z)).in_units('Mpc').value
 
-def PriorInter( z_s=6.0, model='Rodrigues18' ):
+def PriorInter( redshift=6.0, model='Rodrigues18' ):
     """ 
     Compute the likelihood of LoS to be intersected by a galaxy at redshift for all redshifts in redshift_bins (Macquart & Koay 2013 Eq. 33). All units in Mpc.
-    Results are given for all redshift_bins <= z_s
+    Results are given for all redshift_bins <= redshift
 
     Parameter
     ---------
-    z_s : float
+    redshift : float
        source redshift
     model : string
        mnemonic of the intervening galaxy model
@@ -196,9 +211,9 @@ def PriorInter( z_s=6.0, model='Rodrigues18' ):
 
     """
 
-    ## use values only to required redshift
-    iz = np.where( redshift_bins == z_s )[0][0] + 1
-    z = redshift_bins[:iz]
+    ## use values only to required redshift 
+    iz = redshift_bins <= redshift+0.0001 ### small shift required to find correct bin, don't know why it fails without...
+    z = redshift_bins[iz]
 
 
     if model == 'Macquart13':
@@ -212,11 +227,11 @@ def PriorInter( z_s=6.0, model='Rodrigues18' ):
         ## read data written to dat_file
         d = np.genfromtxt(Rodrigues_file_rgal, names=True)
 
-        r = d['r_gal'][:iz] # kpc
+        r = d['r_gal'][iz] # kpc
         ## use correct r_gal = 2.7 * r_1/2 and units (Mpc)
         r *= 2.7e-3 # Mpc
 
-        n = d['n_gal'][:iz] # Mpc-3, comoving
+        n = d['n_gal'][iz] # Mpc-3, comoving
         comoving=True
         ### n_gal is broken somehow, so for now we use 
         n = 0.089 # Mpc-3
@@ -226,14 +241,14 @@ def PriorInter( z_s=6.0, model='Rodrigues18' ):
         n = n * (1+z)**3
     return np.pi* r**2 * n * HubbleDistance(z) / (1+z)
 
-def nInter( z=6.0, model='Rodrigues18' ):
+def nInter( redshift=6.0, model='Rodrigues18' ):
     """ 
-    compute the average number of LoS intersected by a galaxy in redshift bins (Macquart & Koay 2013 Eq. 33). All units in Mpc.
-    Results are given for all redshift_bins <= z_s
+    compute the average number of LoS intersected by a galaxy in redshift_bins (Macquart & Koay 2013 Eq. 33). All units in Mpc.
+    Results are given for all redshift_bins <= redshift
 
     Parameter
     ---------
-    z : float
+    redshift : float
        source redshift
     model : string
        mnemonic of the intervening galaxy model
@@ -244,18 +259,18 @@ def nInter( z=6.0, model='Rodrigues18' ):
         average amount of LoS intersected by galaxy at corresponding redshift in redshift_bins
 
     """
-    dz = np.diff(redshift_range[redshift_range<=z*1.000001]) ## small factor required to find correct bin, don't know why it fails without...
-    pi_z = PriorInter( z_s=z, model=model)
+    dz = np.diff(redshift_range[redshift_range<=redshift+0.0001]) ## small shift required to find correct bin, don't know why it fails without...
+    pi_z = PriorInter( redshift=redshift, model=model)
     return  pi_z * dz
     
 from PreFRBLE.file_system import Rodrigues_file_rgal
-def NInter( z=6., model='Rodrigues18' ):
+def NInter( redshift=6., model='Rodrigues18' ):
     """ 
-    compute the average number of LoS to redhshift z_s intersected by a galaxy (Macquart & Koay 2013 Eq. 33). All units in Mpc 
+    compute the average number of LoS to redhshift intersected by a galaxy (Macquart & Koay 2013 Eq. 33). All units in Mpc 
 
     Parameter
     ---------
-    z : float
+    redshift : float
        source redshift
     model : string
        mnemonic of the intervening galaxy model
@@ -267,23 +282,7 @@ def NInter( z=6., model='Rodrigues18' ):
 
     """
 
-    ## use n and r only to redquired redshift
-    iz = np.where( redshift_bins > z )[0][0]
-
-    if model == 'Rodrigues18':
-        ## read data written to dat_file
-        d = np.genfromtxt(Rodrigues_file_rgal, names=True)
-
-        r = d['r_gal'][:iz] # kpc
-        ## use correct r_gal = 2.7 * r_1/2 and units (Mpc)
-        r *= 2.7e-3 # Mpc
-
-        n = d['n_gal'][:iz] # Mpc-3
-        comoving=True
-        ### n_gal is broken somehow, so for now we use 
-        n = 0.089 # Mpc-3
-
-    return np.sum( nInter( z_s=z, r=r, n=n, comoving=comoving) )
+    return np.sum( nInter( redshift=redshift, model=model) )
 
 
 def LogMeanStd( data, axis=None ):

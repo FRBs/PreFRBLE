@@ -58,25 +58,19 @@ def KeyRedshift( population='flat', telescope='none', axis='P' ):
     return '/'.join( [ population, telescope, axis] )
 
 #def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Local=['Piro18/uniform_JF12'] ):
-def KeyFull( measure='DM', axis='P', redshift=0.1, **scenario ):
+def KeyFull( measure='DM', axis='P', redshift=0.1, N_inter=False, **scenario ):
     """ scenario key in likelihood_file_Full """
     scenario_ = CorrectScenario( measure, **scenario )
     models = []
     for region in regions:
         model = scenario_.get( region )
         if model:
+            if N_inter and region == 'Inter':
+                model += "Ninter"
             models = np.append( models, model )
     models = np.append( models, [ np.round( redshift, redshift_accuracy ), measure, axis ] )
     return '/'.join( models )
 
-''' old, long and ugly version
-    models = np.append( scenario['model_MW'], scenario['model_IGM'] )
-    models = np.append( models, scenario['model_Host'] )
-    models = np.append( models, scenario['weight_Host'] )
-    models = np.append( models, scenario['model_Local'] )
-    models = np.append( models, [redshift, measure,axis] )
-    return '/'.join( models )
-'''
 
 def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', **scenario ):
     """ scenario key in likelihood_file_telescope """

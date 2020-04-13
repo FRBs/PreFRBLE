@@ -491,7 +491,7 @@ def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, **kwarg
     return LikelihoodsAdd( Ps, xs, devs=devs, weights=weights )
 
 
-def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, **scenario ):
+def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=False, **scenario ):
     """
     return the full likelihood function for measure in the given scenario, i. e. convolution of P from all considered regions
     P, x and dev are written to likelihood_file_Full
@@ -506,6 +506,11 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, **scenar
         pixelization of IGM full-sky maps
     dev : boolean,
         indicate whether deviation of P should be returned
+    N_inter : boolean
+        if False: LoS should definitely entail an intervening galaxy  (P_Inter renormalized to 1)
+        if True: it is unknown whether galaxies intersect the LoS or not (P_Inter renormalized to NInter(redshift) )
+    **scenario : dictionary
+        list of models combined to one scenario
 
     Returns
     -------
@@ -517,7 +522,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, **scenar
     for region in regions:
         model = scenario.get( region )
         if model:
-            P, x, P_dev = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, dev=True  )
+            P, x, P_dev = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, N_inter=N_inter, dev=True  )
             Ps.append( P )
             xs.append( x )
             devs.append( P_dev )
@@ -531,7 +536,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, **scenar
 #    print( 'P_dev_convolve', P_dev.min(), P_dev.max(), np.array(devs).max(), measure )
     
     ## write to file
-    Write2h5( likelihood_file_Full, [P,x,P_dev], [ KeyFull( measure=measure, redshift=redshift, axis=axis, **scenario ) for axis in ['P', 'x', 'dev']] )
+    Write2h5( likelihood_file_Full, [P,x,P_dev], [ KeyFull( measure=measure, redshift=redshift, axis=axis, N_inter=N_inter, **scenario ) for axis in ['P', 'x', 'dev']] )
 
     res = [P,x]
     if dev:
@@ -567,7 +572,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, **scenar
     return P,x
 '''
 
-def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, dev=False, **scenario ):
+def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, dev=False, N_inter=N_inter, **scenario ):
     """
     return the likelihood function for measure expected to be observed by telescope in the given scenario
     P, x and dev are written to likelihood_file_telescope
@@ -586,6 +591,9 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
         indicate whether full likelihood functions should be computed again (only required once per scenario)
     dev : boolean,
         indicate whether deviation of P should be returned
+    N_inter : boolean
+        if False: LoS should definitely entail an intervening galaxy  (P_Inter renormalized to 1)
+        if True: it is unknown whether galaxies intersect the LoS or not (P_Inter renormalized to NInter(redshift) )
 
     Returns
     -------
@@ -603,12 +611,12 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
 #    for z in redshift_bins:
     for i in trange( len(redshift_bins) ):
         z = redshift_bins[i]
-        P, x, dev = GetLikelihood_Full( measure=measure, redshift=z, force=force, dev=True, **scenario )
+        P, x, dev = GetLikelihood_Full( measure=measure, redshift=z, force=force, dev=True, N_inter=N_inter, **scenario )
         Ps.append(P)
         xs.append(x)
         devs.append(dev)
     P, x, dev = LikelihoodsAdd( Ps, xs, devs=devs, renormalize=1., weights=Pz*np.diff(zs), dev_weights=devz )
-    Write2h5( filename=likelihood_file_telescope, datas=[P,x, dev], keys=[ KeyTelescope( measure=measure, telescope=telescope, population=population, axis=axis, **scenario) for axis in ['P','x', 'dev'] ] )
+    Write2h5( filename=likelihood_file_telescope, datas=[P,x, dev], keys=[ KeyTelescope( measure=measure, telescope=telescope, population=population, axis=axis, N_inter=N_inter, **scenario) for axis in ['P','x', 'dev'] ] )
 
     res = [P,x]
     if len(dev)>0:
@@ -949,7 +957,7 @@ get_likelihood = {
     'MW'         : GetLikelihood_MilkyWay  
 }
 
-def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, **kwargs ):
+def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_inter=False, **kwargs ):
     """ 
     read likelihood function of any individual model of region written to file
     
@@ -975,6 +983,8 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, **
     """
     if region == 'IGM' and kwargs['measure'] == 'RM':
         kwargs['absolute'] = True
+    elif N_inter and region == 'Inter':
+        kwargs['N_inter'] = True
     try:
         P, x = get_likelihood[region]( model=model, **kwargs )
     except:
@@ -987,7 +997,7 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, **
     return res
     
 
-def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, **scenario ):
+def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, N_inter=False, **scenario ):
     """ 
     read likelihood function of measure for FRBs at redsift in full LoS scenario
 
@@ -998,6 +1008,9 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, **sc
         if True: force new computation of full likelihood from individual models and write to likelihood_file_Full
     dev : boolean
         if True: also return deviation of full likelihood, according to propagation of errors of individual likelihoods
+    N_inter : boolean
+        if False: LoS should definitely entail an intervening galaxy  (P_Inter renormalized to 1)
+        if True: it is unknown whether galaxies intersect the LoS or not (P_Inter renormalized to NInter(redshift) )
     scenario : dictionary
         contains 'region':[models] considered for the full LoS
         multiple models for same 'region' are summed, multiple regions are convolved
@@ -1030,13 +1043,13 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, **sc
         try:
             with h5.File( likelihood_file_Full, 'r' ) as f:
 #                print( [ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) for axis in axes ] )
-                return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) ][()] for axis in axes ]
+                return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
         except:
             pass
     ## compute and write to file
-    return LikelihoodFull( measure=measure, redshift=redshift, dev=dev, **scenario )
+    return LikelihoodFull( measure=measure, redshift=redshift, dev=dev, N_inter=N_inter, **scenario )
 
-def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, dev=False, **scenario ):
+def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, dev=False, N_inter=False, **scenario ):
     """ 
     read likelihood function of measure to be observed by telescope in case of population
 
@@ -1047,6 +1060,9 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
         if True: force new computation of full likelihood from individual models and write to likelihood_file_Full
     dev : boolean
         if True: also return deviation of full likelihood, according to propagation of errors of individual likelihoods
+    N_inter : boolean
+        if False: LoS should definitely entail an intervening galaxy  (P_Inter renormalized to 1)
+        if True: it is unknown whether galaxies intersect the LoS or not (P_Inter renormalized to NInter(redshift) )
     scenario : dictionary
         contains 'region':[models] considered for the full LoS
         multiple models for same 'region' are summed, multiple regions are convolved
@@ -1070,10 +1086,10 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
             axes.append('dev')
         try:
             with h5.File( likelihood_file_telescope, 'r' ) as f:
-                return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, **scenario ) ][()] for axis in axes ]
+                return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
         except:
             pass
-    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, **scenario )
+    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
 
 
 
