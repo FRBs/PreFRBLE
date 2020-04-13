@@ -176,36 +176,114 @@ HubbleParameter = lambda z: co.hubble_parameter(z).in_cgs()
 def HubbleDistance( z ):
     return (speed_of_light / HubbleParameter(z)).in_units('Mpc').value
 
-def PriorInter( z_s=6.0,   ## source redshift
-            r=1., ## Mpc, radius of intervening galaxy
-            n=1 , ## Mpc^-3 number density of galaxies
-            comoving = False ## indicates whether n is comoving
-           ):
-    """ compute the prior likelihood of galaxies at redshift z to intersect the LoS (integrand of Macquart & Koay 2013 Eq. 33). All units in Mpc """
-    z = redshift_bins[redshift_bins<=z_s]
+def PriorInter( z_s=6.0, model='Rodrigues18' ):
+    """ 
+    Compute the likelihood of LoS to be intersected by a galaxy at redshift for all redshifts in redshift_bins (Macquart & Koay 2013 Eq. 33). All units in Mpc.
+    Results are given for all redshift_bins <= z_s
+
+    Parameter
+    ---------
+    z_s : float
+       source redshift
+    model : string
+       mnemonic of the intervening galaxy model
+
+    Return
+    ------
+    pi_inter : numpy-array
+        likelihood of LoS to be intersected by galaxy at corresponding redshift in redshift_bins
+        for intersection probability, multiply by size of redshift bin, which is done by nInter
+
+    """
+
+    ## use values only to required redshift
+    iz = np.where( redshift_bins == z_s )[0][0] + 1
+    z = redshift_bins[:iz]
+
+
+    if model == 'Macquart13':
+        ## values adopted from Marcquart & Koay 2013
+        n = 0.02*hubble_constant**3  
+        r = 0.01/hubble_constant     
+
+    elif model == 'Rodrigues18':
+        ## values correpsonding to settings used in Rodrigues et al. 2018
+        
+        ## read data written to dat_file
+        d = np.genfromtxt(Rodrigues_file_rgal, names=True)
+
+        r = d['r_gal'][:iz] # kpc
+        ## use correct r_gal = 2.7 * r_1/2 and units (Mpc)
+        r *= 2.7e-3 # Mpc
+
+        n = d['n_gal'][:iz] # Mpc-3, comoving
+        comoving=True
+        ### n_gal is broken somehow, so for now we use 
+        n = 0.089 # Mpc-3
+
     if (type(n) is not np.ndarray) or comoving:
         ## for constant or comoving number density, consider cosmic expansion
         n = n * (1+z)**3
     return np.pi* r**2 * n * HubbleDistance(z) / (1+z)
 
-def nInter( z_s=6.0,   ## source redshift
-            r=1., ## Mpc, radius of intervening galaxy
-            n=1 , ## Mpc^-3 number density of galaxies
-            comoving = False ## indicates whether n is comoving
-           ):
-    """ compute the average number of LoS intersected by a galaxy at redshift z (Macquart & Koay 2013 Eq. 33). All units in Mpc """
-    dz = np.diff(redshift_range[redshift_range<=z_s*1.000001]) ## small factor required to find correct bin, don't know why it fails without...
-    pi_z = PriorInter( z_s, r=r, n=n, comoving=comoving)
+def nInter( z=6.0, model='Rodrigues18' ):
+    """ 
+    compute the average number of LoS intersected by a galaxy in redshift bins (Macquart & Koay 2013 Eq. 33). All units in Mpc.
+    Results are given for all redshift_bins <= z_s
+
+    Parameter
+    ---------
+    z : float
+       source redshift
+    model : string
+       mnemonic of the intervening galaxy model
+
+    Return
+    ------
+    n_inter : numpy-array
+        average amount of LoS intersected by galaxy at corresponding redshift in redshift_bins
+
+    """
+    dz = np.diff(redshift_range[redshift_range<=z*1.000001]) ## small factor required to find correct bin, don't know why it fails without...
+    pi_z = PriorInter( z_s=z, model=model)
     return  pi_z * dz
     
+from PreFRBLE.file_system import Rodrigues_file_rgal
+def NInter( z=6., model='Rodrigues18' ):
+    """ 
+    compute the average number of LoS to redhshift z_s intersected by a galaxy (Macquart & Koay 2013 Eq. 33). All units in Mpc 
 
-def NInter( z_s=6.,   ## source redshift
-            r=1., ## radius of intervening galaxy
-            n=1 , ## number density of galaxies
-            comoving = False ## indicates whether n is comoving
-           ):
-    """ returns total intersection likelihood for source at all redshift bins up to z_s. All units in Mpc """
-    return np.cumsum( nInter( z_s, r=r, n=n, comoving=comoving) )
+    Parameter
+    ---------
+    z : float
+       source redshift
+    model : string
+       mnemonic of the intervening galaxy model
+
+    Return
+    ------
+    N_inter : float
+        average amount of galaxies intersecting LoS to source at corresponding redshift in redshift_bins
+
+    """
+
+    ## use n and r only to redquired redshift
+    iz = np.where( redshift_bins > z )[0][0]
+
+    if model == 'Rodrigues18':
+        ## read data written to dat_file
+        d = np.genfromtxt(Rodrigues_file_rgal, names=True)
+
+        r = d['r_gal'][:iz] # kpc
+        ## use correct r_gal = 2.7 * r_1/2 and units (Mpc)
+        r *= 2.7e-3 # Mpc
+
+        n = d['n_gal'][:iz] # Mpc-3
+        comoving=True
+        ### n_gal is broken somehow, so for now we use 
+        n = 0.089 # Mpc-3
+
+    return np.sum( nInter( z_s=z, r=r, n=n, comoving=comoving) )
 
 
 def LogMeanStd( data, axis=None ):

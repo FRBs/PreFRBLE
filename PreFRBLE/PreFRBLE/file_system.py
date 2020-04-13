@@ -28,4 +28,13 @@ likelihood_file_Full = root_likelihood+'observables_likelihood_Full.h5'
 likelihood_file_telescope = root_likelihood+'observables_likelihood_telescope.h5'
 
 
+############################################################################
+############################### OTHER FILES ################################
+############################################################################
+
+
+## file to contain average r_gal and n_gal
+Rodrigues_file_rgal = root_likelihood+'Rodrigues_galaxy_radius.dat'
+
+
 file_estimated_redshifts_DM = root_results+"redshift_estimates_%s.npy"

@@ -914,10 +914,13 @@ def GetLikelihood_Host( redshift=0., model='Rodrigues18', measure='DM' ):
     return res
 
 
-def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
-    """ read likelihood function of contribution of intervening galaxy model to measure for LoS to redshift from likelihood_file_galaxy """
+def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM', N_inter=False ):
+    """ read likelihood function of contribution of intervening galaxy model to measure for LoS to redshift from likelihood_file_galaxy. Is renormalized to intersection probability if N_inter is True """
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
-        return [ f[ KeyInter( redshift=redshift, model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
+        P, x = [ f[ KeyInter( redshift=redshift, model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
+    if N_inter:
+        P *= NInter( redshift=redshift, model=model )
+    return P, x
 
 def GetLikelihood_inter( redshift=0., model='Rodrigues18', measure='DM' ):
     """ read likelihood function of contribution of intervening galaxy model to measure for LoS to redshift from likelihood_file_galaxy """
