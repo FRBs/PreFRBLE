@@ -36,7 +36,7 @@ def LikelihoodDeviation( P=[], x=[], N=1 ):
     return res
 
 
-def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
+def Likelihoods( measurements=[], P=[], x=[], dev=None, minimal_likelihood=0. ):
     """
     returns likelihoods for given measurements according to likelihood function given by P and x
 
@@ -79,18 +79,21 @@ def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
             else:        ## otherwise, measure is in the bin
                 ## put result in correct place and stop checking bins
                 likelihoods[i_s] = Pdx[i-1]  if i > 0 else minimal_likelihood  ## if that was the lowest bound, probability is ->zero if measurement is outside the range of P, i. e. P~0
-                deviations[i_s] = dev[i-1] if i > 0 else 1
+                if dev:
+                    deviations[i_s] = dev[i-1] if i > 0 else 1
                 break    ## continue with the next measurement
         else:
             ## if measure is bigger than the last bin
             likelihoods[i_s] = minimal_likelihood  ## probability is zero if measurement is outside the range of P, i. e. P~0
-            deviations[i_s] = 1
+            if dev:
+                deviations[i_s] = 1
     
 #    likelihoods = np.array( likelihoods )
-    if len(dev) == 0:
-        return likelihoods
-    else:
+    if dev:
         return likelihoods, deviations
+    else:
+        return likelihoods
+        
 
 
 def LikelihoodShift( x=[], P=[], shift=1. ):
@@ -368,9 +371,48 @@ def WeighBayesFactor( B=1, w=1 ):
     w_log = np.log10(w)
     return 10.**( np.log10(B) * (1+np.abs(w_log))**(1 - 2*(w_log<0) - (w_log==0) )  ) 
 
+
+def BayesTotalLog( bayes, axis=None ):
+    """ return log10 of total bayes factor along axis """
+    return np.nansum( np.log10(bayes), axis=axis)
+
+def BayesJackknife( bayes, axis=None ):
+    """ return log10 of total bayes factor and deviation from Jackknife resampling of bayes factors of individual measurements """
+    mean, dev = Jackknife( bayes, BayesTotalLog, axis=axis )
+    return mean, dev
+
+def BayesFactors( P1=0, P2=0, which_NaN=False ):
+    """
+    compute Bayes factors = P1/P2 between two scenarios
+
+    Parameters
+    ----------
+    which_NaN : boolean
+        if True, print indices of likelihoods, for which Bayes factor is NaN or infinite
+
+    Returns
+    -------
+    bayes : array-like
+        Bayes factors
+
+    """
+    bayes =  P1/P2
+    NaN = np.isnan(bayes) + np.isinf(bayes)
+#    dev = np.sqrt( dev1*2 + dev2**2 )
+    if np.any(NaN):
+        print( "%i of %i returned NaN. Ignore in final result" %( np.sum(NaN), len(bayes) ) )
+        bayes[NaN] = 1
+        if which_NaN:
+            which_NaN = np.where( NaN )
+            print(which_NaN)
+    else:
+        which_NaN = None
+    
+    return bayes
+
 def BayesFactor( P1=0, P2=0, dev1=0, dev2=0, which_NaN=False, axis=None ):
     """
-    compute Bayes factor = P1/P2 between two scenarios
+    compute total Bayes factor = prod(P1/P2) between two scenarios
 
     Parameters
     ----------
@@ -381,7 +423,7 @@ def BayesFactor( P1=0, P2=0, dev1=0, dev2=0, which_NaN=False, axis=None ):
     axis : integer
         if -1: return array of individual Bayes factor for each pair of P1 and P2
         if None: return total Bayes factor = product of individual Bayes factors
-        else : return array of total Bayes factor copmuted along axis
+        else : return array of total Bayes factor computed along axis
 
     Returns
     -------
@@ -389,20 +431,36 @@ def BayesFactor( P1=0, P2=0, dev1=0, dev2=0, which_NaN=False, axis=None ):
         Bayes factor and deviation
 
     """
-    bayes =  P1/P2
-    NaN = np.isnan(bayes) + np.isinf(bayes)
-    dev = np.sqrt( dev1*2 + dev2**2 )
-    if np.any(NaN):
-        print( "%i of %i returned NaN. Ignore in final result" %( np.sum(NaN), len(DMs) ) )
-        dev[NaN] = 0
-        if which_NaN:
-            ix, = np.where( NaN )
-            print(ix)
+    NaN = True
+    bayes = BayesFactors( P1=P1, P2=P2, which_NaN=NaN )
 
-    if axis is not -1:
-        bayes = np.nanprod(bayes, axis=axis)
-        dev = np.sqrt( np.sum( dev*2, axis=axis ) )
-    return bayes, dev
+    if axis == -1:
+        return bayes
+    
+    return BayesFactorTotal( bayes, axis=axis )
+
+
+
+def BayesFactorTotal( bayes, mode='Jackknife', axis=None ):
+    """ 
+    return total bayes factor using mode
+
+    Parameter
+    ---------
+    bayes : array-like
+        individual bayes factors 
+    mode : string
+        set mode how to compute total Bayes factor (and deviation)
+        'simple' : return product(bayes)
+        'Jackknife' : average and deviation from Jackknife estimate
+
+
+    """
+    if mode == 'simple':
+        return np.prod(bayes, axis=axis)
+    if mode == 'Jackknife':
+        bayes, dev = BayesJackknife( bayes, axis=axis )
+        return 10.**bayes, dev
     
 
 
@@ -812,6 +870,10 @@ def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, m
     """
     if redshift < 0.1:
         typ='near'
+        ## !!! for now, assume negligible contribution of IGM for z < 0.05, use x of z=0.1 !!!
+        P, x = GetLikelihood_IGM( redshift=0.1, model=model, typ='far', nside=nside, measure=measure, absolute=absolute )
+        return np.zeros(len(P)), x
+        
     with h5.File( likelihood_file_IGM, 'r' ) as f:
 #        print( [KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) for axis in ['P','x']] )
         return [f[ KeyIGM( redshift=redshift, model=model, typ='far' if redshift >= 0.1 else 'near', nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
@@ -856,6 +918,11 @@ def GetLikelihood_Inter( redshift=0., model='Rodrigues18', measure='DM' ):
     """ read likelihood function of contribution of intervening galaxy model to measure for LoS to redshift from likelihood_file_galaxy """
     with h5.File( likelihood_file_galaxy, 'r' ) as f:
         return [ f[ KeyInter( redshift=redshift, model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
+
+def GetLikelihood_inter( redshift=0., model='Rodrigues18', measure='DM' ):
+    """ read likelihood function of contribution of intervening galaxy model to measure for LoS to redshift from likelihood_file_galaxy """
+    with h5.File( likelihood_file_galaxy, 'r' ) as f:
+        return [ f[ Keyinter( redshift=redshift, model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
 
 def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
     """ read likelihood function of contribution of local environment model to measure for FRB at redshift from likelihood_file_local """

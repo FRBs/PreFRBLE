@@ -95,6 +95,40 @@ sigma_probability = { ## proability entailed within sigma range
 
 
 
+def Jackknife( values, function=np.mean, axis=None ):
+    """  
+    obtain Jackknife estimator
+    
+    Parameter
+    ---------
+    values : array-like
+        values to be Jackknifed
+    axis : integer
+        axis along which to Jackknife
+    function : function-type
+        function to be executed on the samples to find the value to be estimated
+        needs keyword axis if axis is used
+        
+    Returns
+    -------
+    mean, std : floats
+        average and standard deviation of esimates computed by function
+    """
+    estimates = values.copy()
+    
+    #N_samples = values.shape[axis] if axis else values.size
+    if axis:
+        estimates = np.moveaxis( estimates, axis, 0 )
+        for i in range(estimates.shape[0]):
+            estimates[i] = function( np.delete( values, i, axis=axis), axis=axis )
+        estimates = np.moveaxis( estimates, 0, axis  )
+    else:
+        for i in range(values.size):
+            estimates.flat[i] = function( np.delete( values, i ) )        
+    return np.nanmean(estimates, axis=axis), np.nanstd(estimates, axis=axis)
+
+
+
 def AngularDiameterDistance(z_o=0., z_s=1.):
     """ compute angular diameter distance between redshift of observer z_o and source z_s """
 

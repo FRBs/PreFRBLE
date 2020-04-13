@@ -239,10 +239,10 @@ def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', populati
     """
     if ax is None:
         fig, ax = plt.subplots()
-    P, x, dev_ = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, dev=True, **scenario )
+    P = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, dev=True, **scenario )
     if measureable:
-        P, x, dev_ = LikelihoodMeasureable( P=P, x=x, dev=dev_, min=measure_range[measure][0], max=measure_range[measure][1] )
-    PlotLikelihood( x, P, dev=dev_ if dev else [], measure=measure, ax=ax, **kwargs )
+        P = LikelihoodMeasureable( *P, min=measure_range[measure][0], max=measure_range[measure][1] )
+    PlotLikelihood( *P, measure=measure, ax=ax, **kwargs )
     plt.tight_layout()
 
 def PlotContributions( measure='DM', redshift=0.1, **scenario ):
@@ -252,8 +252,8 @@ def PlotContributions( measure='DM', redshift=0.1, **scenario ):
         models = scenario.get( region )
         if models:
             for model in models:
-                P, x = GetLikelihood( region=region, model=model, measure=measure, redshift=redshift )
-                PlotLikelihood( x, P, measure=measure, label=region+' '+labels[model] , linestyle=linestyle_region[region], ax=ax )
+                P = GetLikelihood( region=region, model=model, measure=measure, redshift=redshift )
+                PlotLikelihood( *P, measure=measure, label=region+' '+labels[model] , linestyle=linestyle_region[region], ax=ax )
     plt.legend()
     plt.title( "redshift = %.1f" % redshift )
     plt.tight_layout()

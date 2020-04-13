@@ -37,9 +37,14 @@ def KeyHost( redshift=0.0, model='Rodrigues18/smd', measure='DM', axis='P' ):
     """ host model key in likelihood_file_galaxy """
     return '/'.join( [ 'Host', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
 
+def Keyinter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
+    """ intervening model key in likelihood_file_galaxy for case of galaxy intervening at redhsift """
+    return '/'.join( [ 'inter', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
+
 def KeyInter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
-    """ intervening model key in likelihood_file_galaxy """
+    """ intervening model key in likelihood_file_galaxy for case of galaxy at unknown redshift along LoS to redshift """
     return '/'.join( [ 'Intervening', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
+
 
 def KeyIGM( redshift=0.1, model='primordial', typ='far', nside=2**2, measure='DM', axis='P' ):  ## nside=2**6
     """ model key in likelihood_file_IGM """
@@ -89,11 +94,11 @@ from time import sleep
 
 ## wrapper to write hdf5 files consistently
 def Write2h5( filename='', datas=[], keys=[] ):
-    """ conveniently write datas to keys in filename. overwrite existing entries"""
+    """ conveniently write datas to keys in filename. overwrite existing entries """
     if type(keys) is str:
         sys.exit( 'Write2h5 needs list of datas and keys' )
-#    with SimpleFlock( 'flock_writeh5', 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
-#    with SimpleFlock( filename, 1 ):  ## to prevent multiple processes to write to file simultaneously (which will fail)
+    ### small workaround to allow for parallel computation. Use with caution, might corrupt nodes in your h5 file. in that case, visit:
+    ### https://stackoverflow.com/questions/47979751/recover-data-from-corrupted-file/61147632?noredirect=1#comment108190378_61147632
     tries = 0
     while tries < 30:
         try:
