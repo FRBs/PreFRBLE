@@ -36,7 +36,7 @@ def LikelihoodDeviation( P=[], x=[], N=1 ):
     return res
 
 
-def Likelihoods( measurements=[], P=[], x=[], dev=None, minimal_likelihood=0. ):
+def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
     """
     returns likelihoods for given measurements according to likelihood function given by P and x
 
@@ -79,17 +79,17 @@ def Likelihoods( measurements=[], P=[], x=[], dev=None, minimal_likelihood=0. ):
             else:        ## otherwise, measure is in the bin
                 ## put result in correct place and stop checking bins
                 likelihoods[i_s] = Pdx[i-1]  if i > 0 else minimal_likelihood  ## if that was the lowest bound, probability is ->zero if measurement is outside the range of P, i. e. P~0
-                if dev:
+                if len(dev):
                     deviations[i_s] = dev[i-1] if i > 0 else 1
                 break    ## continue with the next measurement
         else:
             ## if measure is bigger than the last bin
             likelihoods[i_s] = minimal_likelihood  ## probability is zero if measurement is outside the range of P, i. e. P~0
-            if dev:
+            if len(dev):
                 deviations[i_s] = 1
     
 #    likelihoods = np.array( likelihoods )
-    if dev:
+    if len(dev):
         return likelihoods, deviations
     else:
         return likelihoods
@@ -101,7 +101,7 @@ def LikelihoodShift( x=[], P=[], shift=1. ):
     return P/shift, x*shift
 
 
-def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None, dev_weights=None, renormalize=False ):
+def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None, dev_weights=None, renormalize=False, min=None, max=None ):
     """
     add together several likelihood functions
 
@@ -123,6 +123,9 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
         provide deviation for the weights
     renormalize : float, optional
         renormlization of result
+    min, max : float
+        indicate minimum and/or maximum value of added function
+
 
     Returns
     -------
@@ -146,10 +149,12 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
     l = len(Ps[0])
     if shrink:
         l = shrink
+    x_min = min if min else np.min(xs)
+    x_max = max if max else np.max(xs)
     if log:
-        x = 10.**np.linspace( np.log10(np.min(xs)), np.log10(np.max(xs)), l+1 )
+        x = 10.**np.linspace( np.log10(x_min), np.log10(x_max), l+1 )
     else:
-        x = np.linspace( np.min(xs), np.max(xs), l+1 )
+        x = np.linspace( x_min, x_max, l+1 )
     if weights is None:
         weights = np.ones( len(Ps) )
     if dev_weights is None:
@@ -192,12 +197,13 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
         P *= renormalize/np.sum( P*np.diff(x) )
     return res
 
-def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True ):
+def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True, min=None, max=None, renormalize=False ):
     """ reduce number of bins in likelihood function, contains normalization """
     ### Actual work is done by LikelihoodsAdd, which adds up several P to new range with limited number of bins
     ### to shrink function, add P=0 with identical range
     devs = [dev,np.zeros(len(dev))] if len(dev) > 0 else []
-    return LikelihoodsAdd( [P, np.zeros(len(x))], [x,x], devs=devs, shrink=bins, log=log, renormalize=np.sum( P*np.diff(x) ) )
+    renorm = renormalize if renormalize else np.sum( P*np.diff(x) ) 
+    return LikelihoodsAdd( [P, np.zeros(len(P))], [x,x], devs=devs, shrink=bins, log=log, renormalize=renorm, min=min, max=max )
 
 
 def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1 ):
@@ -425,8 +431,8 @@ def BayesFactor( P1=0, P2=0, dev1=0, dev2=0, which_NaN=False, axis=None ):
         if None: return total Bayes factor = product of individual Bayes factors
         else : return array of total Bayes factor computed along axis
 
-    Returns
-    -------
+    Return
+    ------
     bayes, dev : array-like
         Bayes factor and deviation
 
@@ -454,6 +460,12 @@ def BayesFactorTotal( bayes, mode='Jackknife', axis=None ):
         'simple' : return product(bayes)
         'Jackknife' : average and deviation from Jackknife estimate
 
+    Return
+    ------
+    bayes : float
+        total bayes factor
+    dev : float
+        relative deviation of bayes
 
     """
     if mode == 'simple':
@@ -574,7 +586,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
     return P,x
 '''
 
-def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, dev=False, N_inter=False, **scenario ):
+def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, dev=False, progress_bar=False, N_inter=False, **scenario ):
     """
     return the likelihood function for measure expected to be observed by telescope in the given scenario
     P, x and dev are written to likelihood_file_telescope
@@ -611,7 +623,8 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
     ## possible solutions for all redshifts are summed, weighed by the prior
     Ps, xs, devs = [], [], []
 #    for z in redshift_bins:
-    for i in trange( len(redshift_bins) ):
+    ran = trange( len(redshift_bins), desc='LikelihoodTelescope' ) if progress_bar else range( len(redshift_bins) )
+    for i in ran:
         z = redshift_bins[i]
         P, x, dev = GetLikelihood_Full( measure=measure, redshift=z, force=force, dev=True, N_inter=N_inter, **scenario )
         Ps.append(P)
@@ -629,6 +642,10 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
 
 def LikelihoodMeasureable( P=[], x=[], dev=[], min=None, max=None ):
     """    returns the renormalized part of full likelihood function that can be measured by telescopes, i. e. min <= x <= max """
+    ## determine number of bins in result, roughly number of bins  min <= x <= max 
+    bins = int(np.sum( np.prod( [x>=min if min else np.ones(len(x)), x<=max if max else np.ones(len(x)) ], axis=0 ) ))
+    return LikelihoodShrink( P=P, x=x, dev=dev, min=min, max=max, renormalize=1, bins=bins )
+
     if min:
         ix, = np.where( x >= min )
         x = x[ix]
@@ -732,7 +749,7 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
         res.append(devs)
     return res
 
-def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1., population='flat', telescope='None', measureable=True, force=False, dev=False ):
+def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1., population='flat', telescope='None', measureable=True, force=False, dev=False, progress_bar=False ):
     """
     compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
 
@@ -766,14 +783,15 @@ def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1
 #    P_redshifts_DMs, redshift_range = LikelihoodRedshift( DMs=DMs, scenario=scenario, taus=taus, population=population, telescope=telescope )
     P_redshifts_DMs, redshift_range, redshift_devs = LikelihoodRedshift( DMs=DMs, scenario=scenario, taus=taus, population=population, telescope=telescope, dev=True ) ## force=force )
 
-    print( 'redshift_devs', redshift_devs.mean() )
+#    print( 'redshift_devs', redshift_devs.mean() )
 
     ## for each possible source redshift
 #    for redshift, P_redshift, dredshift, redshift_dev in zip( redshift_bins, P_redshifts_DMs.transpose(), np.diff(redshift_range), redshift_devs.transpose() ):
     P_redshifts_DMs = P_redshifts_DMs.transpose()
     dredshifts = np.diff(redshift_range)
     redshift_devs = redshift_devs.transpose()
-    for iz in trange( len(redshift_bins) ):
+    ran = trange( len(redshift_bins), desc='LikelihoodCombined' ) if progress_bar else range( len(redshift_bins) )
+    for iz in ran:
         redshift, P_redshift, dredshift, redshift_dev = redshift_bins[iz], P_redshifts_DMs[iz], dredshifts[iz], redshift_devs[iz]
 
         ## estimate likelihood of scenario based on RM, using the redshift likelihood as a prior
@@ -792,7 +810,7 @@ def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1
         result_dev += add**2 * ( redshift_dev**2 + deviations**2 )
 #        result += P_redshift*dredshift * Likelihoods( measurements=RMs, P=P, x=x )
 
-        print( 'deviations', deviations.min(), deviations.max(), deviations.mean(), P_dev.mean() )
+#        print( 'deviations', deviations.min(), deviations.max(), deviations.mean(), P_dev.mean() )
 
     ## for localized events, instead use likelihood of DM and RM at host redshift
     for loc in localized:
@@ -839,6 +857,12 @@ def BayesFactorCombined( DMs=[], RMs=[], zs=None, scenario1={}, scenario2={}, ta
     dev : boolean
         if True, also return deviation of combined Bayes factor, propagated from deviation of individual likelihood functions
 
+    Return
+    ------
+    bayes : float
+        total bayes factor
+    dev : float, optional if dev==True
+        log10 deviation of bayes factor
     """
     L1, dev1 = LikelihoodCombined( DMs=DMs, RMs=RMs, zs=zs, scenario=scenario1, taus=taus, population=population, telescope=telescope, force=force, dev=True )
     L2, dev2 = LikelihoodCombined( DMs=DMs, RMs=RMs, zs=zs, scenario=scenario2, taus=taus, population=population, telescope=telescope, force=force_full, dev=True ) if L0 is None else (L0, dev0)
@@ -1045,6 +1069,7 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, N_in
 #                print( [ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) for axis in axes ] )
                 return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
         except:
+            print( 'cannot find P_full', KeyFull( measure=measure, axis='P', redshift=redshift, N_inter=N_inter, **scenario ) )
             pass
     ## compute and write to file
     return LikelihoodFull( measure=measure, redshift=redshift, dev=dev, N_inter=N_inter, **scenario )
@@ -1088,6 +1113,7 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
             with h5.File( likelihood_file_telescope, 'r' ) as f:
                 return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
         except:
+            print( 'cannot find P_Telescope', KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', N_inter=N_inter, **scenario ) )
             pass
     return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
 

@@ -69,6 +69,7 @@ def FakeFRBs( measures=['DM','RM'], N=50, telescope='CHIME', population='SMD', m
 
 #    P = 1./(zs[-1]-zs[0])  ### !!! REMOVE, used to test validity of results at all redshifts
 
+    ## size of sample per redshift bin
     N_z = np.round( N*P*np.diff(zs) ).astype('i')
 
     ## sample measures for each bin

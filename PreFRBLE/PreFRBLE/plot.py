@@ -50,7 +50,7 @@ def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', 
     bayes : 2D array-like, shape( N_y, N_x )
         bayes factors for tuples of (x,y)
     dev : 2D array-like, shape( N_y, N_x ), optional
-        deviation of bayes factors, only plotted for graphs=True
+        deviation of log10 of bayes factors, only plotted for graphs=True
     N_bayes : integer ## depreciated
     graphs : boolean
         indicate whether results should be drawn as graphs 
@@ -69,13 +69,14 @@ def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', 
     if graphs:
         for ib, (b, Y) in enumerate( zip( bayes/bayes.max(), y ) ):
             if len(dev) > 0:
-                ax.errorbar( x, b, yerr=b*dev[ib], label=Y )
+                yerr = np.array([ b- 10.**( np.log10(b) - dev[ib]), 10.**(np.log10(b) + dev[ib]) - b ])
+                ax.errorbar( x, b, yerr=yerr, label=Y )
             else:
                 ax.plot( x, b, label=Y )
         ax.set_ylabel( "$%s$" % P_label, fontdict={'size':18 }  )
         ax.set_xlabel( xlabel, fontdict={'size':18 }  )
         ax.set_yscale('log')
-        ax.legend()
+        ax.legend( fontsize=16)
         
     if plane:
         levels = np.linspace( np.log10(P_min), 0, 200 )
@@ -97,6 +98,8 @@ def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', 
         if type(y[0]) is str:
             ax.set_yticks( yy )
             ax.set_yticklabels( y )
+    ax.tick_params(axis='both', which='major', labelsize=16)
+
 
 
 
@@ -152,6 +155,8 @@ def PlotLikelihood( P=np.ones(1), x=np.arange(2), dev=None, density=True, cumula
 #        ax.set_ylabel( ( r"P(%s)" % label_measure[measure] ) + ( ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] ) ), fontdict={'size':18 } )
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
+    ax.tick_params(axis='both', which='major', labelsize=16)
+    AllSidesTicks(ax)
 
 def PlotLikelihoodEvolution( measure='DM', dev=False, scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, force=False, alpha=0.5, **kwargs ):
     """ 
@@ -239,7 +244,7 @@ def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', populati
     """
     if ax is None:
         fig, ax = plt.subplots()
-    P = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, dev=True, **scenario )
+    P = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, dev=dev, **scenario )
     if measureable:
         P = LikelihoodMeasureable( *P, min=measure_range[measure][0], max=measure_range[measure][1] )
     PlotLikelihood( *P, measure=measure, ax=ax, **kwargs )
