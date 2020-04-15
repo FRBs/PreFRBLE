@@ -5,8 +5,9 @@ from PreFRBLE.parameter import telescopes, populations
 scenario = {
     'IGM' : ['primordial'],
     'Host' : ['Rodrigues18'],
-#    'Inter' : ['Rodrigues18'],
+    'Inter' : ['Rodrigues18'],
     'Local' : ['Piro18/wind'],
+    'N_inter' : True
 }
 '''
 scenario = {
@@ -19,13 +20,12 @@ scenario = {
 scenarios = [
     {'IGM' : ['primordial'],'Host' : ['Rodrigues18'],'Local' : ['Piro18/wind'],},                                         ## no intervening galaxy
     {'IGM' : ['primordial'],'Host' : ['Rodrigues18'],'Local' : ['Piro18/wind'],'Inter' : ['Rodrigues18']},                ## certain intervening galaxy
-    {'IGM' : ['primordial'],'Host' : ['Rodrigues18'],'Local' : ['Piro18/wind'],'Inter' : ['Rodrigues18'],'N_inter':True}, ## NInter intervening galaxies (realistic estimate for unknown interveners)
+#    {'IGM' : ['primordial'],'Host' : ['Rodrigues18'],'Local' : ['Piro18/wind'],'Inter' : ['Rodrigues18'],'N_inter':True}, ## NInter intervening galaxies (realistic estimate for unknown interveners)
 ]
 
-scenario = scenarios[-1]
 
 
-## force new computation of existing results
+## force new computation of existing results for full likelihood functions at different redshifts
 force=True
 
 models_IGMF = [ 'alpha%i-3rd' % i for i in range(1,10) ]
@@ -40,8 +40,9 @@ model = 'primordial'
 for scenario_tmp in scenarios:
     for telescope in telescopes:
         for population in populations:
+            print( 'tau', scenario_tmp, telescope, population, file=sys.stdout)
             print( 'tau', scenario_tmp, telescope, population, file=sys.stderr)
-            LikelihoodTelescope( measure='tau', telescope=telescope, population=population, force=population == populations[0] and telescope==telescopes[0] and force, dev=True, **scenario_tmp )
+            LikelihoodTelescope( measure='tau', telescope=telescope, population=population, force=population == populations[0] and telescope==telescopes[0] and force, dev=True, progres_bar=True, **scenario_tmp)
 #'''
 
 #'''
@@ -51,8 +52,9 @@ for f_IGM in f_IGMs:
         tmp['IGM'] = ["%s_C%.0f" % (model, 1000*f_IGM) ]
     for telescope in telescopes:
         for population in populations:
+            print( 'DM', tmp, telescope, population, file=sys.stdout)
             print( 'DM', tmp, telescope, population, file=sys.stderr)
-            LikelihoodTelescope( measure='DM', telescope=telescope, population=population, force=population == populations[0] and telescope==telescopes[0] and force, dev=True, **tmp )
+            LikelihoodTelescope( measure='DM', telescope=telescope, population=population, force=population == populations[0] and telescope==telescopes[0] and force, dev=True, progres_bar=True, **tmp )
 
 
 #'''
@@ -61,14 +63,16 @@ for f_IGM in f_IGMs:
 
 ## then measures that depend on B
 
-if len(sys.argv) != 2:
-    raise ValueError( "Please provide number of IGMF model [0-8]" )
+#if len(sys.argv) != 2:
+#    raise ValueError( "Please provide number of IGMF model [0-8]" )
 
-i=int(sys.argv[1])
+#i=int(sys.argv[1])
+
+i=8
 
 #for model in models_IGMF[i:i+1]:
 for model in models_IGMF:
-    for f_IGM in f_IGMs:
+    for f_IGM in f_IGMs[6:7]:
         tmp = scenario.copy()
         if f_IGM < 1:
             tmp['IGM'] = ["%s_C%.0f" % (model, 1000*f_IGM) ]
@@ -76,7 +80,8 @@ for model in models_IGMF:
             tmp['IGM'] = [model]
         for telescope in telescopes:
             for population in populations:
+                print( 'RM', tmp, telescope, population, file=sys.stdout)
                 print( 'RM', tmp, telescope, population, file=sys.stderr)
-                LikelihoodTelescope( measure='RM', telescope=telescope, population=population, force=population == populations[0] and telescope==telescopes[0] and force, dev=True, **tmp )
+                LikelihoodTelescope( measure='RM', telescope=telescope, population=population, force=population == populations[0] and telescope==telescopes[0] and force, dev=True, progres_bar=True, **tmp )
 #'''        
 
