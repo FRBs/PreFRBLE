@@ -41,5 +41,5 @@ populations_FRBpoppy = { 'SFR':'sfr', 'SMD':'smd', 'coV':'vol_co' }
 ## names used in FRBcat
 telescopes_FRBcat = { 'ASKAP':'ASKAP', 'ASKAP_incoh':'ASKAP', 'CHIME':'CHIME/FRB', 'Parkes':'parkes' }
 telescopes_FRBcat_inv = {v: k for k, v in telescopes_FRBcat.items()}
-
+telescopes_FRBcat_inv['ASKAP'] = 'ASKAP_incoh'  ## has to be forced
 

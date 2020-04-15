@@ -156,7 +156,7 @@ def PlotLikelihood( P=np.ones(1), x=np.arange(2), dev=None, density=True, cumula
 #        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
 #        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
     ax.tick_params(axis='both', which='major', labelsize=16)
-    AllSidesTicks(ax)
+#    AllSidesTicks(ax)
 
 def PlotLikelihoodEvolution( measure='DM', dev=False, scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, force=False, alpha=0.5, **kwargs ):
     """ 
@@ -258,7 +258,7 @@ def PlotContributions( measure='DM', redshift=0.1, **scenario ):
         if models:
             for model in models:
                 P = GetLikelihood( region=region, model=model, measure=measure, redshift=redshift )
-                PlotLikelihood( *P, measure=measure, label=region+' '+labels[model] , linestyle=linestyle_region[region], ax=ax )
+                PlotLikelihood( *P, measure=measure, label=region+': '+Label(model) , linestyle=linestyle_region[region], ax=ax )
     plt.legend()
     plt.title( "redshift = %.1f" % redshift )
     plt.tight_layout()
@@ -316,6 +316,7 @@ def Gradient( x=np.linspace(0,1,2), min=None, max=None ):
 
 def AllSidesTicks( ax ):
     """ puts ticks without labels on top and right axis, identical to those on bottom and left axis, respectively """
+    return; ## depreceate for now as it doesn't work correctly...
     axy = ax.twinx()
     axy.set_ylim( ax.get_ylim() )
     axy.set_yscale( ax.get_yscale() )

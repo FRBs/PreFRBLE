@@ -65,9 +65,10 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, N_inter=False, **scenario ):
     for region in regions:
         model = scenario_.get( region )
         if model:
+            if region == 'Inter': ## in order to distinguish between intervening and host galaxies, which may use the same model
+                for m in model:
+                    m += '_' + ( 'N' if N_inter else '') + 'Inter'
             models = np.append( models, model )
-            if N_inter and region == 'Inter':
-                models = np.append( models, "Ninter" )
     models = np.append( models, [ np.round( redshift, redshift_accuracy ), measure, axis ] )
     return '/'.join( models )
 

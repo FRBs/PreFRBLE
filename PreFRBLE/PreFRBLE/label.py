@@ -11,15 +11,6 @@ labels = {
     'astrophysical' : 'astrophysical',
     'astrophysical_mean' : 'astrophysical_mean',
     'astrophysical_median' : 'astrophysical_median',
-    'alpha1-3rd' : r'$\alpha$ = 1/3',
-    'alpha2-3rd' : r"$\alpha$ = 2/3",
-    'alpha3-3rd' : r"$\alpha$ = 3/3",
-    'alpha4-3rd' : r"$\alpha$ = 4/3",
-    'alpha5-3rd' : r"$\alpha$ = 5/3",
-    'alpha6-3rd' : r"$\alpha$ = 6/3",
-    'alpha7-3rd' : r"$\alpha$ = 7/3",
-    'alpha8-3rd' : r"$\alpha$ = 8/3",
-    'alpha9-3rd' : r"$\alpha$ = 9/3",
 
     ### Host
     'JF12/Uniform' : 'Uniform',
@@ -55,6 +46,32 @@ labels = {
 ############################################################################
 
 
+def Label( model ):
+    """ return the label corresponding to a model """
+    try: ## model is one of standard models                                                                                                                                          
+        return labels[model]
+    except:
+        pass
+    label = r""
+
+    ## check for other models than standard models
+    if 'alpha' in model: ### alpha models are not part of the standard models
+        label += r"$\alpha = \frac{{{}}}{{3}}$".format( int(model.split('alpha')[-1].split('-3rd')[0]) )
+    else: ## assume a standard model is combined with a modifier
+        label += Label( model.split('_')[0] )
+
+    ## check for model modifiers
+    if '_C' in model:
+        label += r", $f_{{\rm IGM}} = {:.1f}$".format( 1e-3*float(model.split('_C')[-1]) )
+                        
+    if label:
+        return label 
+    else:
+        print( "cannot label {}".format(model) )
+        return model
+        
+        
+
 def LabelAddModel( label='', model='' ):
     ## adds model to label of scenario, i. e. set of combined models
     multi = len(model) > 1
@@ -63,7 +80,7 @@ def LabelAddModel( label='', model='' ):
     label += r"(" * multi
     
     for m in model:
-        label += labels[m]
+        label += Label(m)
         label += r"+" * multi
     if multi:
         label = label[:-1]

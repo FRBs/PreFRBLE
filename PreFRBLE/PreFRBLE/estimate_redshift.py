@@ -1,11 +1,12 @@
 from pandas import DataFrame
 from PreFRBLE.convenience import *
 from PreFRBLE.likelihood import *
+from PreFRBLE.plot import *
 from PreFRBLE.parameter import *
 
 
 
-def RedshiftEstimate( DM=0, telescope='Parkes', population='SMD', scenario={}, plot=False, ax=None, **kwargs ):
+def RedshiftEstimate( DM=0, telescope='Parkes', population='SMD', scenario={}, sigma=1, plot=False, ax=None, **kwargs ):
     """
     estimate the redshift from DM of FRB observed by telescope
 
@@ -20,6 +21,8 @@ def RedshiftEstimate( DM=0, telescope='Parkes', population='SMD', scenario={}, p
         assumed scenario for he full line of sight
     population : string
         assumed cosmic population
+    sigma : integer
+        indicates the sigma range to be returned. must be contained in sigma_probability in physics.py
     plot : boolean
         if True, plot likelihood function  of radshift with estimate
     ax : pyplot axis, optional
@@ -33,7 +36,7 @@ def RedshiftEstimate( DM=0, telescope='Parkes', population='SMD', scenario={}, p
 
     """
     Ps, z = LikelihoodRedshift( DMs=[DM], population=population, telescope=telescope, scenario=scenario )
-    est, dev = Likelihood2Expectation( x=z, P=Ps[0], log=False, density=True, std_nan=( 0.05, np.array([0.05,0.05]).reshape([2,1]) ) )
+    est, dev = Likelihood2Expectation( x=z, P=Ps[0], sigma=sigma, log=False, density=True, std_nan=( 0.05, np.array([0.05,0.05]).reshape([2,1]) ) )
     if plot and not np.isnan(est):
         if ax is None:
             fig, ax = plt.subplots()
@@ -44,7 +47,7 @@ def RedshiftEstimate( DM=0, telescope='Parkes', population='SMD', scenario={}, p
         ax.set_xscale('linear')
     return est, dev
     
-def RedshiftEstimates( DM=0, telescope='Parkes', scenario={}, plot=False, ax=None, **kwargs ):
+def RedshiftEstimates( DM=0, telescope='Parkes', scenario={}, sigma=1, plot=False, ax=None, **kwargs ):
     """
     estimate the redshift from DM of FRB observed by telescope for all considered populations
 
@@ -57,6 +60,8 @@ def RedshiftEstimates( DM=0, telescope='Parkes', scenario={}, plot=False, ax=Non
         observing telescope
     scenario : dictionary
         assumed scenario for he full line of sight
+    sigma : integer
+        indicates the sigma range to be returned. must be contained in sigma_probability in physics.py
     plot : boolean
         if True, plot likelihood function  of radshift with estimate
     ax : pyplot axis, optional
@@ -73,7 +78,7 @@ def RedshiftEstimates( DM=0, telescope='Parkes', scenario={}, plot=False, ax=Non
         fig, ax = plt.subplots()
     ests, devs = [], []
     for population, linestyle in zip( populations, linestyles_population ):
-        est, dev = RedshiftEstimate( DM, ax=ax, telescope=telescope, population=population, scenario=scenario, linestyle=linestyle, plot=plot, **kwargs)
+        est, dev = RedshiftEstimate( DM, ax=ax, telescope=telescope, population=population, scenario=scenario, sigma=sigma, linestyle=linestyle, plot=plot, **kwargs)
         ests.append(est)
         devs.append(dev)
     return ests, devs

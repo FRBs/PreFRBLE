@@ -29,6 +29,10 @@ def Likelihood( data=np.arange(1,3), bins=10, range=None, density=None, log=Fals
 
 Histogram = Likelihood ## old name, replace everywhere
 
+def LikelihoodNorm( P=[], x=[], dev=[] ):
+    """ Compute norm of likelihood function P """
+    return np.sum(P*np.diff(x))
+
 def LikelihoodDeviation( P=[], x=[], N=1 ):
     """ compute relative deviation (Poisson noise) of likelihood function of individual model obtained from sample of N events """
     res =  ( P*np.diff(x)*N )**-0.5
@@ -97,7 +101,8 @@ def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
 
 
 def LikelihoodShift( x=[], P=[], shift=1. ):
-    """ Shift x-values of likelihood function and renormalize accordingly: P(x|shift) = 1/shift * P(shift*x|1) """
+    """ Shift x-values of likelihood function and renormalize accordingly: P'(x|shift) = shift * P(shift*x|1) """
+    # x' = shift*x, thus P' = P dx/dx' = P / shift 
     return P/shift, x*shift
 
 
@@ -226,14 +231,14 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     """
     if absolute:
     ##   allow x-values to cancel out, assume same likelihood for + and -
-#        x_min = x_g[0] + x_f[0]  ## keep minimum of resulting x for later ## this minimum is not correct, take the one below
-#        x_min = np.abs(x_g[0] - x_f[0])  ## keep minimum of resulting x for later ## this is still not the minimum... solve this differently, e.g. with x[0] = ... below
         x_f = np.append( -x_f[:0:-1], np.append( 0, x_f[1:] ) )
         f = np.append( f[::-1], f )
         x_g = np.append( -x_g[:0:-1], np.append( 0, x_g[1:] ) )
         g = np.append( g[::-1], g )
+    
     ## matrix of multiplied probabilities
     M_p = np.dot( f.reshape(len(f),1), g.reshape(1,len(g)) )
+    
     ## matrix of combined ranges
     M_x = np.add( x_f.reshape(len(x_f),1), x_g.reshape(1,len(x_g)) )
     
@@ -241,6 +246,7 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     x = np.unique(M_x)
     ## convolution probability
     P = np.zeros( len(x)-1 )
+
     ##   convolve by looping through M_p
     for i in range( len(f) ):
         for j in range( len(g) ):
@@ -251,12 +257,17 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
 #            P[in_:out] += M_p[i][j]  
 #            P[in_:out] += ( M_p[i][j] * (M_x[i+1][j+1] - M_x[i][j]) )
             P[in_:out] += ( M_p[i][j] * np.diff(x[in_:out+1]) )
+
     if absolute:
     ##   add negative probability to positive
         x = x[ x>=0] ### this makes x[0]=0, which is bad for log scale...
         x[0] = x[1]**2/x[2] ### rough, but okay... this is very close to and definitely lower than x[1] and the lowest part does not affect much the rest of the function. The important parts of the function are reproduced well
 #        x = np.append( x_min, x[1+len(x)/2:] )
         P = np.sum( [ P[:int(len(P)/2)][::-1], P[int(len(P)/2):] ], axis=0 )
+
+    ## transform convolved probability to likelihood function (pdf)
+    P /= np.diff(x)
+
     ## renormalize full integral
     if renormalize:
         P *= renormalize / np.sum( P*np.diff(x) )
@@ -287,25 +298,26 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
     
     """
 
-    ## work with probability, not pdf
-    for i in range(len(Ps)):
-        Ps[i] *= np.diff(xs[i])
-
-    P, x, dev = Ps[0], xs[0], devs[0]
-    for P1, x1, dev1 in zip( Ps[1:], xs[1:], devs[1:] ):
-        devA  = np.sum(P1*np.diff(x1)) *  dev * P
-        devB  = dev1 * P1 * np.sum( P*np.diff(x) )
-        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), renormalize=False, **kwargs )
-        dev = np.sqrt(devA**2 + devB**2) / P
+    P, x, dev = Ps[0], xs[0], devs[0] if len(devs) else 0
+    for i in range(1,len(Ps)):
+        P1, x1, dev1 = Ps[i], xs[i], devs[i] if len(devs) else 0
+        if len(devs):
+            devA  = np.sum(P1*np.diff(x1)) *  dev * P
+            devB  = dev1 * P1 * np.sum( P*np.diff(x) )
+        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), renormalize=1, **kwargs )
+        if len(devs):
+            dev = np.sqrt(devA**2 + devB**2) / P
         
-        ## where P=0 returns NaN. replace by 0 to not affect other data
-        dev[np.isnan(dev)] = 0
+            ## where P=0 returns NaN. replace by 0 to not affect other data
+            dev[np.isnan(dev)] = 0
 
-    ## return renormalized pdf, not probability
-    P /= np.diff(x)
+    ## return renormalized likelihood
     P /= np.sum(P*np.diff(x))
 
-    return P, x, dev
+    res = [P,x]
+    if len(devs):
+        res.append(dev)
+    return res
 
 
 def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True, sigma=1, std_nan=np.nan ):
@@ -359,7 +371,9 @@ def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=Tru
 
     ## exactly compute sigma range
     P_cum = np.cumsum( P_ )
-    lo =   expect - first( zip(x, P_cum), condition= lambda x: x[1] > 0.5*(1-sigma_probability[sigma]) )[0]
+    ## find where half of remaining probability 1-P(sigma) is entailed in x <= x_lo
+    lo =   expect - first( zip(x, P_cum), condition= lambda x: x[1] > 0.5*(1-sigma_probability[sigma]) )[0]  
+    ## find where half of remaining probability 1-P(sigma) is entailed in x >= x_hi
     hi = - expect + first( zip(x[1:], P_cum), condition= lambda x: x[1] > 1- 0.5*(1-sigma_probability[sigma]) )[0]
     
     ## if z is clearly within one bin, hi drops negative value
@@ -931,7 +945,7 @@ def GetLikelihood_HostShift( redshift=0., model='JF12', measure='DM' ):
 #        print([ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) for axis in ['P', 'x'] ] )
 #        return [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
         P, x = [ f[ KeyHost( model=model, measure=measure, axis=axis, redshift=0.0 ) ][()] for axis in ['P', 'x'] ]
-        return LikelihoodShift( x=x, P=P, shift=(1+redshift)**scale_factor_exponent[measure] )
+        return LikelihoodShift( x=x, P=P, shift=(1+redshift)**-scale_factor_exponent[measure] )
 
 def GetLikelihood_Host( redshift=0., model='Rodrigues18', measure='DM' ):
     """ 
@@ -942,6 +956,7 @@ def GetLikelihood_Host( redshift=0., model='Rodrigues18', measure='DM' ):
         with h5.File( likelihood_file_galaxy, 'r' ) as f:
             res = [ f[ KeyHost( model=model, redshift=redshift, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
     except:
+        print( "Host: {} shifted to z={}".format( model, redshift ) )
         res = GetLikelihood_HostShift( redshift, model,  measure )
     return res
 
@@ -964,7 +979,7 @@ def GetLikelihood_Local( redshift=0., model='Piro18/uniform', measure='DM' ):
     with h5.File( likelihood_file_local, 'r' ) as f:
 #        return [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] * (1+redshift)**scale_factor_exponent[measure] for axis in ['P', 'x'] ]
         P, x = [ f[ KeyLocal( model=model, measure=measure, axis=axis ) ][()] for axis in ['P', 'x'] ]
-        return LikelihoodShift( x=x, P=P, shift=(1+redshift)**scale_factor_exponent[measure] )
+        return LikelihoodShift( x=x, P=P, shift=(1+redshift)**-scale_factor_exponent[measure] )
 
 def GetLikelihood_MilkyWay( model='JF12', measure='DM' ):
     """ read likelihood function of contribution of Milky Way model to measure from likelihood_file_galaxy """
