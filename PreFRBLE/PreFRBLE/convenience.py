@@ -65,22 +65,27 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, N_inter=False, **scenario ):
     for region in regions:
         model = scenario_.get( region )
         if model:
+            model_ = model.copy()
             if region == 'Inter': ## in order to distinguish between intervening and host galaxies, which may use the same model
-                for m in model:
-                    m += '_' + ( 'N' if N_inter else '') + 'Inter'
-            models = np.append( models, model )
+                for i in range(len(model)):
+                    model_[i] += '_{}Inter'.format( 'N' if N_inter else '' )
+            models = np.append( models, model_ )
     models = np.append( models, [ np.round( redshift, redshift_accuracy ), measure, axis ] )
     return '/'.join( models )
 
 
-def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', **scenario ):
+def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', N_inter=False, **scenario ):
     """ scenario key in likelihood_file_telescope """
     scenario_ = CorrectScenario( measure, **scenario )
     models = [ telescope, population ]
     for region in regions:
         model = scenario_.get( region )
         if model:
-            models = np.append( models, model )
+            model_ = model.copy()
+            if region == 'Inter': ## in order to distinguish between intervening and host galaxies, which may use the same model
+                for i in range(len(model)):
+                    model_[i] += '_{}Inter'.format( 'N' if N_inter else '' )
+            models = np.append( models, model_ )
     models = np.append( models, [ measure, axis ] )
     return '/'.join( models )
 
