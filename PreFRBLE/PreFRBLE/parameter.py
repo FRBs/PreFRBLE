@@ -31,7 +31,7 @@ models_Local = [ 'Piro18/wind', 'Piro18/wind+SNR']
 ## telescopes and cosmic population scenarios
 telescopes = [ 'ASKAP', 'ASKAP_incoh', 'CHIME', 'Parkes' ][1:]  ## names used in PreFRBLE
 populations = [ 'SFR', 'coV', 'SMD' ]
-colors_telescope = ['blue','orange','green']
+colors_telescope = ['orange','y','c']
 linestyles_population = [':','-','--']
 
 ## names used in FRBpoppy

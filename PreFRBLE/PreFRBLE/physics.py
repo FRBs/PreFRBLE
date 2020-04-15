@@ -43,7 +43,7 @@ scale_factor_exponent = { ## exponent of scale factor a=1/(1+z) in redshift depe
 
 ## physical constraints
 
-RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes, is limited by precision of forground removel of Milky Way and Ionosphere
+RM_min = 1 # rad m^-2  ## minimal RM measureable by telescopes, is limited by precision of forground removal of Milky Way and Ionosphere
 tau_min = 0.01 # ms    ## minimal tau measureable by telescopes, chosen to be smallest value available in FRBcat. However, depends on telescope, 1 ms for CHIME and ASKAP
 tau_max = 50.0 # ms    ## maximal reasonable tau measured by telescopes, chosen to be biggest value observed so far (1906.11305). However, depends on telescope
 
@@ -230,6 +230,7 @@ def PriorInter( redshift=6.0, model='Rodrigues18' ):
         r = d['r_gal'][iz] # kpc
         ## use correct r_gal = 2.7 * r_1/2 and units (Mpc)
         r *= 2.7e-3 # Mpc
+        
 
         n = d['n_gal'][iz] # Mpc-3, comoving
         comoving=True
@@ -237,7 +238,7 @@ def PriorInter( redshift=6.0, model='Rodrigues18' ):
         n = 0.089 # Mpc-3
 
     if (type(n) is not np.ndarray) or comoving:
-        ## for constant or comoving number density, consider cosmic expansion
+        ## for constant or comoving number density, consider cosmic expansion to use proper density
         n = n * (1+z)**3
     return np.pi* r**2 * n * HubbleDistance(z) / (1+z)
 
