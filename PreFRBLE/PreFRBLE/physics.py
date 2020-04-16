@@ -231,11 +231,8 @@ def PriorInter( redshift=6.0, model='Rodrigues18' ):
         ## use correct r_gal = 2.7 * r_1/2 and units (Mpc)
         r *= 2.7e-3 # Mpc
         
-
         n = d['n_gal'][iz] # Mpc-3, comoving
         comoving=True
-        ### n_gal is broken somehow, so for now we use 
-        n = 0.089 # Mpc-3
 
     if (type(n) is not np.ndarray) or comoving:
         ## for constant or comoving number density, consider cosmic expansion to use proper density

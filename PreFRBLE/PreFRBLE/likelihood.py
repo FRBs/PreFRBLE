@@ -1084,7 +1084,7 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, N_in
 #                print( [ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) for axis in axes ] )
                 return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
         except:
-            print( 'cannot find P_full', KeyFull( measure=measure, axis='P', redshift=redshift, N_inter=N_inter, **scenario ) )
+            print( 'cannot find P_full and have to compute', KeyFull( measure=measure, axis='P', redshift=redshift, N_inter=N_inter, **scenario ) )
             pass
     ## compute and write to file
     return LikelihoodFull( measure=measure, redshift=redshift, dev=dev, N_inter=N_inter, **scenario )
@@ -1128,7 +1128,7 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
             with h5.File( likelihood_file_telescope, 'r' ) as f:
                 return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
         except:
-            print( 'cannot find P_Telescope', KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', N_inter=N_inter, **scenario ) )
+            print( 'cannot find P_Telescope and have to compute', KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', N_inter=N_inter, **scenario ) )
             pass
     return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
 
