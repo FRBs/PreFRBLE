@@ -175,7 +175,7 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
             norm = renormalize/np.sum( P*np.diff(x) )
             P *= norm
         if smooth:
-            P, x, dev = LikelihoodSmooth( P=P, x=x, dev=dev )
+            P, x = LikelihoodSmooth( P=P, x=x )
 
         res = [P, x]
         if len(devs) > 0:
@@ -679,7 +679,7 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
     ## possible solutions for all redshifts are summed, weighed by the prior
     Ps, xs, devs = [], [], []
 #    for z in redshift_bins:
-    ran = trange( len(redshift_bins), desc='LikelihoodTelescope' ) if progress_bar else range( len(redshift_bins) )
+    ran = trange( len(redshift_bins), desc='LikelihoodTelescope {} {}'.format( telescope, population ) ) if progress_bar else range( len(redshift_bins) )
     for i in ran:
         z = redshift_bins[i]
         P, x, dev = GetLikelihood_Full( measure=measure, redshift=z, force=force, dev=True, N_inter=N_inter, **scenario )
