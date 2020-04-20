@@ -19,7 +19,9 @@ def CorrectScenario( measure='DM', **scenario ):
                 result['IGM'] = [scenario['IGM'][0].replace('primordial','alpha1-3rd')]
     else:
         if 'IGM' in scenario:
-            if 'alpha' in scenario['IGM'][0]:
+            if measure in ['tau','SM']: ##  negligible contibution from IGM, hence doesn't require different models
+                scenario['IGM'] = ['primordial']
+            if 'alpha' in result['IGM'][0]:
                 result['IGM'] = [scenario['IGM'][0].replace(scenario['IGM'][0][:10], 'primordial' )]
     return result
 

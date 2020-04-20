@@ -29,6 +29,34 @@ def Likelihood( data=np.arange(1,3), bins=10, range=None, density=None, log=Fals
 
 Histogram = Likelihood ## old name, replace everywhere
 
+
+
+
+def LikelihoodSmooth( P=[], x=[], dev=[], mode='MovingAverage' ):
+    """ 
+    Smooth likelihood function P(x)
+    
+    modes available:
+        MovingAverage : smooth using moving average over 5 neighbouring boxes
+    
+    
+    """
+    
+    norm = LikelihoodNorm( P=P, x=x, dev=dev )
+    
+    if mode == 'MovingAverage':
+        box_pts = 5
+        P = np.convolve( P, np.ones(box_pts)/box_pts, mode='same' )
+        
+    ## smoothing doesn't conserve normalization
+    P /= norm*LikelihoodNorm( P=P, x=x, dev=dev )
+    
+    res = [P, x]
+    if len(dev)>0:
+        res.append(dev)
+    return res
+        
+
 def LikelihoodNorm( P=[], x=[], dev=[] ):
     """ Compute norm of likelihood function P """
     return np.sum(P*np.diff(x))
@@ -106,7 +134,7 @@ def LikelihoodShift( x=[], P=[], shift=1. ):
     return P/shift, x*shift
 
 
-def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None, dev_weights=None, renormalize=False, min=None, max=None ):
+def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None, dev_weights=None, renormalize=False, min=None, max=None, smooth=True ):
     """
     add together several likelihood functions
 
@@ -130,7 +158,8 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
         renormlization of result
     min, max : float
         indicate minimum and/or maximum value of added function
-
+    smooth : boolean
+        if True, return smoothed P ( LikelihoodSmooth )
 
     Returns
     -------
@@ -145,10 +174,13 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
         if renormalize: ## maybe renormalized to new value
             norm = renormalize/np.sum( P*np.diff(x) )
             P *= norm
+        if smooth:
+            P, x, dev = LikelihoodSmooth( P=P, x=x, dev=dev )
+
+        res = [P, x]
         if len(devs) > 0:
-            dev = devs[0]*norm
-            return P, x, dev
-        return P, x
+            res.append( devs[0] )
+        return res
 
     ## new function support
     l = len(Ps[0])
@@ -193,13 +225,17 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
                 P[ib] += add
                 if len(devs)>0:
                     dev[ib] += add**2 * ( np.sum( ( devs[i_f][ix]*f[ix]*np.diff(x_) )**2 ) /np.sum( ( f[ix]*np.diff(x_) )**2 )  + dev_weights[i_f]**2 ) 
-    res = [P,x]
     if len(devs)>0:
         dev = np.sqrt(dev)/P
         dev[ np.isnan(dev) ] = 0
-        res.append( dev )
     if renormalize:
         P *= renormalize/np.sum( P*np.diff(x) )
+    if smooth:
+        P, x, dev = LikelihoodSmooth( P=P, x=x, dev=dev )
+
+    res = [P,x]
+    if len(devs)>0:
+        res.append( dev )
     return res
 
 def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True, min=None, max=None, renormalize=False ):
@@ -211,7 +247,7 @@ def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True, 
     return LikelihoodsAdd( [P, np.zeros(len(P))], [x,x], devs=devs, shrink=bins, log=log, renormalize=renorm, min=min, max=max )
 
 
-def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1 ):
+def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1, smooth=True ):
     """
     compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
 
@@ -224,6 +260,8 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
     absolute : boolean
         indicate whether likelihood describes absolute value (possibly negative)
         if True, allow to values to cancel out by assuming same likelihood for positive and negative values
+    smooth : boolean
+        if True, return smoothed P ( LikelihoodSmooth )
 
     Returns
     -------
@@ -273,6 +311,8 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
         P *= renormalize / np.sum( P*np.diff(x) )
     if shrink:
         P, x = LikelihoodShrink( P, x, log=log )
+    if smooth:
+        P, x = LikelihoodSmooth( P=P, x=x )
     return P, x
 
 
@@ -495,7 +535,7 @@ def BayesFactorTotal( bayes, mode='Jackknife', axis=None ):
 ############################################################################
 
 
-def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, **kwargs ):
+def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, smooth=True, **kwargs ):
     """
     return likelihood for a region. if multiple models are provided, their likelihoods are summed together 
 
@@ -505,6 +545,8 @@ def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, **kwarg
         indicate the region along line of sight
     weights: array-like, optional
          weights to be applied to the models
+    smooth : boolean
+        if True, return smoothed P ( LikelihoodSmooth )
     **kwargs for GetLikelihood
     """
     Ps, xs, devs = [], [], []
@@ -514,7 +556,7 @@ def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, **kwarg
         Ps.append( P )
         xs.append( x )
         devs.append( dev )
-    return LikelihoodsAdd( Ps, xs, devs=devs, weights=weights )
+    return LikelihoodsAdd( Ps, xs, devs=devs, weights=weights, smooth=smooth )
 
 
 def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=False, **scenario ):
@@ -996,7 +1038,7 @@ get_likelihood = {
     'MW'         : GetLikelihood_MilkyWay  
 }
 
-def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_inter=False, **kwargs ):
+def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_inter=False, smooth=True, **kwargs ):
     """ 
     read likelihood function of any individual model of region written to file
     
@@ -1005,6 +1047,8 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_
     density : boolean
         if True: return probability density function ( 1 = sum( P * diff(x) ) )
         else: return proability function ( 1 = sum(P) )
+    smooth : boolean
+        if True, return smoothed P ( LikelihoodSmooth )
     **kwargs for the GetLikelihood_* function of individual regions
 
     Returns
@@ -1030,6 +1074,8 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_
         sys.exit( ("model %s in region %s is not available" % ( model, region ), "kwargs", kwargs ) )
     if not density:
         P *= np.diff(x)
+    if smooth:
+        P, x = LikelihoodSmooth( P=P, x=x )
     res = [P, x]
     if dev:
         res.append( LikelihoodDeviation( P=P, x=x, N=N_sample[region]  ) )
