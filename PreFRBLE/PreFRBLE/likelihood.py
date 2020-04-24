@@ -11,7 +11,7 @@ from PreFRBLE.physics import *
 ############### MATHEMATICAL LIKELIHOOD STANDARD OPERATIONS ################
 ############################################################################
 
-def Likelihood( data=np.arange(1,3), bins=10, range=None, density=None, log=False, weights=None ):
+def Likelihood( data=np.arange(1,3), bins=10, range=None, density=True, log=False, weights=None ):
     """ wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function """
     if log:
         if range is not None:
@@ -49,7 +49,7 @@ def LikelihoodSmooth( P=[], x=[], dev=[], mode='MovingAverage' ):
         P = np.convolve( P, np.ones(box_pts)/box_pts, mode='same' )
         
     ## smoothing doesn't conserve normalization
-    P /= norm*LikelihoodNorm( P=P, x=x, dev=dev )
+    P *= norm/LikelihoodNorm( P=P, x=x, dev=dev )
     
     res = [P, x]
     if len(dev)>0:
@@ -238,16 +238,16 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
         res.append( dev )
     return res
 
-def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True, min=None, max=None, renormalize=False ):
+def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True, renormalize=False, **kwargs_LikelihoodsAdd ):
     """ reduce number of bins in likelihood function, contains normalization """
     ### Actual work is done by LikelihoodsAdd, which adds up several P to new range with limited number of bins
     ### to shrink function, add P=0 with identical range
     devs = [dev,np.zeros(len(dev))] if len(dev) > 0 else []
     renorm = renormalize if renormalize else np.sum( P*np.diff(x) ) 
-    return LikelihoodsAdd( [P, np.zeros(len(P))], [x,x], devs=devs, shrink=bins, log=log, renormalize=renorm, min=min, max=max )
+    return LikelihoodsAdd( [P, np.zeros(len(P))], [x,x], devs=devs, shrink=bins, log=log, renormalize=renorm, **kwargs_LikelihoodsAdd )
 
 
-def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1, smooth=True ):
+def LikelihoodConvolve_old( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1, smooth=True, old=False ):
     """
     compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
 
@@ -274,8 +274,13 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
         x_g = np.append( -x_g[:0:-1], np.append( 0, x_g[1:] ) )
         g = np.append( g[::-1], g )
     
+    ## matrix of multiplied probability densities 
+    if old:
+        M_p = np.dot( f.reshape(len(f),1), g.reshape(1,len(g)) )
+    else:
     ## matrix of multiplied probabilities
-    M_p = np.dot( f.reshape(len(f),1), g.reshape(1,len(g)) )
+        M_p = np.dot( (f*np.diff(x_f)).reshape(len(f),1), (g*np.diff(x_g)).reshape(1,len(g)) )
+
     
     ## matrix of combined ranges
     M_x = np.add( x_f.reshape(len(x_f),1), x_g.reshape(1,len(x_g)) )
@@ -292,9 +297,11 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
             in_ = np.where( x == M_x[i][j] )[0][0]
             out = np.where( x == M_x[i+1][j+1] )[0][0]
     ##   and add P * dx to convolved probability in that range
-#            P[in_:out] += M_p[i][j]  
+            if old:
+                P[in_:out] += ( M_p[i][j] * np.diff(x[in_:out+1]) )
+            else:
+                P[in_:out] += M_p[i][j]  
 #            P[in_:out] += ( M_p[i][j] * (M_x[i+1][j+1] - M_x[i][j]) )
-            P[in_:out] += ( M_p[i][j] * np.diff(x[in_:out+1]) )
 
     if absolute:
     ##   add negative probability to positive
@@ -315,6 +322,94 @@ def LikelihoodConvolve( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.ar
         P, x = LikelihoodSmooth( P=P, x=x )
     return P, x
 
+
+## correct convolution
+
+def LikelihoodConvolve( f=[], x_f=[], g=[], x_g=[], log=True, renormalize=1, smooth=True, shrink=False, absolute=False ):
+    """
+    Copmute convolution of two likelihood functions f and g on bins x_f and x_g (sum(P*diff(x)) = norm)
+    The result is the likelihood of sum of variables sampled from f and g
+    
+    Parameters
+    ----------
+    shrink : boolean   (depreceated)
+         if True, reduce number of bins of result to standard number of bins
+    log : boolean
+         indicates whether x_f and x_g are log-scaled
+    absolute : boolean
+        indicate whether likelihood describes absolute value (possibly negative)
+        if True, allow to values to cancel out by assuming same likelihood for positive and negative values
+    smooth : boolean
+        if True, return smoothed P ( LikelihoodSmooth )
+    renormalize : float
+        renromalization factor of final result. False to keep normalization after convolution
+
+    Returns
+    -------
+    P, x : convolve likelihood function values and range
+
+    """
+    ## transform pdf to probability
+    P_f = f*np.diff(x_f)
+    P_g = g*np.diff(x_g)
+    
+    ## find new range, number of bins identical to f
+    x_min = np.min([x_f[0],x_g[0]]) if absolute else x_f[0]+x_g[0]  ## consider minimum to be minimum of both, i. e. impossible for values to cancel out completely defined as below this minimum. Should be legit as this low values cannot be observed anyways
+    x_max = x_f[-1]+x_g[-1]
+    
+    if not log:
+        x = np.linspace( x_min, x_max, len(x_f) )
+    else:
+        x = np.logspace( np.log10(x_min), np.log10(x_max), len(x_f) )
+    P = np.zeros( len(P_f) )
+
+    ## check for normalization
+    norm_f = np.round(LikelihoodNorm( P=f, x=x_f ),4)
+    x_minimal = x.min()*1e-2
+    if norm_f != 1:
+        ## and fill missing probability with artifical bins close to x=0
+        f_bins = list(zip( np.append(x_minimal,x_f), np.append(x_minimal*1.1,x_f[1:]) ))
+        P_f = np.append( 1-norm_f, P_f )
+    else:
+        f_bins = list(zip( x_f, x_f[1:] ))
+    
+    norm_g = np.round(LikelihoodNorm( P=g, x=x_g ),4)
+    if norm_g != 1:
+        ## and fill missing probability with artifical bins close to x=0
+        g_bins = list(zip( np.append(x_minimal,x_g), np.append(x_minimal*1.1,x_g[1:]) ))
+        P_g = np.append( 1-norm_g, P_g )
+    else:
+        g_bins = list(zip( x_g, x_g[1:] ))
+    
+    
+    ## matrix of multiplied probabilities
+    M_p = np.dot( (P_f).reshape(len(P_f),1), (P_g).reshape(1,len(P_g)) )
+
+    
+    ## for each new bin, find probability for contributions from bins in f and g
+    for i_x, x_bin in enumerate(zip( x, x[1:] )):
+        for i_f, f_bin in enumerate( f_bins ):
+            for i_g, g_bin in enumerate( g_bins ):
+#                print( i_x, i_f, i_g, x_bin, f_bin, g_bin )
+                SP = SampleProbability( x=f_bin, y=g_bin, z=x_bin, log=log )
+                if SP:
+                    P[i_x] += SP * M_p[i_f,i_g]
+#                    P[i_x] += SP * P_f[i_f] * P_g[i_g]
+                if absolute: ## also consider y could be negative. same range, same probability. But different SP
+                    SP = SampleProbability( x=f_bin, y=-np.array(g_bin)[::-1], z=x_bin, log=log ) ### y must be ordered y0 < y1
+                    if SP:
+                        P[i_x] += SP * M_p[i_f,i_g]
+    
+    P /= np.diff(x) * (1 + absolute )  ### care for double counting with negative values
+    if smooth:
+        P, x = LikelihoodSmooth( P=P, x=x )
+    if absolute: ## doesn't exactly conserve normalization
+        P /= LikelihoodNorm( P=P, x=x )        
+    if renormalize:
+        P *= renormalize/LikelihoodNorm( P=P, x=x )
+    return P, x
+
+        
 
 
 def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
@@ -344,7 +439,7 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
         if len(devs):
             devA  = np.sum(P1*np.diff(x1)) *  dev * P
             devB  = dev1 * P1 * np.sum( P*np.diff(x) )
-        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), renormalize=1, **kwargs )
+        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), renormalize=1, **kwargs )  ### renormalize to 1 after each individual convolution. This assumes that at least one of the first two P is normalized to 1
         if len(devs):
             dev = np.sqrt(devA**2 + devB**2) / P
         
@@ -535,7 +630,7 @@ def BayesFactorTotal( bayes, mode='Jackknife', axis=None ):
 ############################################################################
 
 
-def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, smooth=True, **kwargs ):
+def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, smooth=True, dev=True, **kwargs ):
     """
     return likelihood for a region. if multiple models are provided, their likelihoods are summed together 
 
@@ -551,12 +646,16 @@ def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, smooth=
     """
     Ps, xs, devs = [], [], []
     for model in models:
-        P, x, dev = GetLikelihood( region=region, model=model, **kwargs  )
+        P, x, dev_ = GetLikelihood( region=region, model=model, dev=True, **kwargs  )
         
         Ps.append( P )
         xs.append( x )
-        devs.append( dev )
-    return LikelihoodsAdd( Ps, xs, devs=devs, weights=weights, smooth=smooth )
+        devs.append( dev_ )
+    P, x, dev_ = LikelihoodsAdd( Ps, xs, devs=devs, weights=weights, smooth=smooth )
+    res = [P,x]
+    if dev:
+        res.append(dev_)
+    return res
 
 
 def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=False, **scenario ):
@@ -592,6 +691,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
         if model:
 #            print('full', region, model )
             P, x, P_dev = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, N_inter=N_inter, dev=True  )
+#            print( region, LikelihoodNorm( P, x ) )
             Ps.append( P )
             xs.append( x )
             devs.append( P_dev )
@@ -700,7 +800,7 @@ def LikelihoodMeasureable( P=[], x=[], dev=[], min=None, max=None ):
     """    returns the renormalized part of full likelihood function that can be measured by telescopes, i. e. min <= x <= max """
     ## determine number of bins in result, roughly number of bins  min <= x <= max 
     bins = int(np.sum( np.prod( [x>=min if min else np.ones(len(x)), x<=max if max else np.ones(len(x)) ], axis=0 ) ))
-    return LikelihoodShrink( P=P, x=x, dev=dev, min=min, max=max, renormalize=1, bins=bins )
+    return LikelihoodShrink( P=P, x=x, dev=dev, min=min, max=max, renormalize=1, bins=bins, smooth=False ) ### smoothing is not reliable at border values. Here, border value is close to peak in P, hence don't smooth
 
     if min:
         ix, = np.where( x >= min )

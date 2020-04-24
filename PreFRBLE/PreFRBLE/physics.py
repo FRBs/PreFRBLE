@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import yt
 
@@ -128,6 +129,80 @@ def Jackknife( values, function=np.mean, axis=None ):
     return np.nanmean(estimates, axis=axis), np.nanstd(estimates, axis=axis)
 
 
+def SampleProbability(  x=(1,10), y=(1,10), z=(2,11), resolution_estimate=10, log=False, plot=False  ):
+    """
+    Given two random variables within bin of ranges x and y, return the probability for their sum to fall in bin with range z
+    
+    Parameters
+    ----------
+    x, y : 2-tuple or similar
+        ranges of two random variables, y can be negative. Have to obey x[0] < x[1] and y[0] < y[1]
+    z : 2-tuple or similar
+        range of possible sum of x and y. z[0] < z[1]
+    resolution_estimate : integer
+        number of sub-bins used to compute the integral that delivers the intersection probability
+    log : boolean
+        indecate whether x, y and z are log-scaled.
+        this assumes that their sampled distribution is log-uniform instead of uniform
+    plot : boolean
+        if True: plot graph that visualizes integral for probability
+    
+    """
+    if z[1] <= x[0]+y[0] or z[0] >= x[-1]+y[-1]:
+        ## in case probed range is impossible to hit
+        return 0.
+    
+    if log:
+        ## support of first variable
+        x_ = np.linspace(*np.log10(x), num=resolution_estimate+1) ## log10
+    else:
+        x_ = np.linspace(*x, num=resolution_estimate+1)
+    dx = np.diff(x_)
+    x_ = x_[:-1]+dx/2
+    if log:
+        x_ = 10.**x_
+
+    ## maximum value to fit in range
+    y_max = z[1] - x_
+    y_max[y_max > y[1]] = y[1]
+    y_max[y_max < y[0]] = y[0]
+
+    ## minimum value to fit in range
+    y_min = z[0] - x_
+    y_min[y_min < y[0]] = y[0]
+    y_min[y_min > y[1]] = y[1]
+        
+    if log:
+        y_min, y_max = np.sort(np.log10(np.abs([y_min, y_max])), axis=0)
+    
+    ## total volume of possible combinations of x and y
+        V_tot = np.diff(np.log10(x)) * np.abs(np.diff(np.log10(np.abs(y))))   ### works for positive and negative y
+    else:
+        V_tot = np.diff(x)*np.diff(y)
+    
+    
+    ## probablity = integral over maximal - minimal possible contribution, i. e. volume of fitting combintations / volume of possible combinations
+    prob = np.sum( (y_max-y_min)*dx ) /V_tot
+
+
+    if plot:
+        plt.plot(np.log10(x_) if log else x_,y_min, ls=':', lw=3)
+        plt.plot(np.log10(x_) if log else x_,y_max,ls='--',lw=3)
+
+        if log:
+            plt.hlines( np.log10(np.abs(y)), *np.log10(x) )
+            plt.vlines( np.log10(x), *np.log10(np.abs(y)) )
+            plt.xlabel(r"log$_{10}(x)$")
+            plt.ylabel(r"log$_{10}(y)$")
+        else:            
+            plt.hlines( y, *x )
+            plt.vlines( x, *y )
+            plt.xlabel('x')
+            plt.ylabel('y')
+    return prob
+
+
+
 
 def AngularDiameterDistance(z_o=0., z_s=1.):
     """ compute angular diameter distance in Gpc between redshift of observer z_o and source z_s """
@@ -235,10 +310,10 @@ def PriorInter( redshift=6.0, model='Rodrigues18', r_gal=None, n_gal=None, n_com
         d = np.genfromtxt(Rodrigues_file_rgal, names=True)
 
         r = d['r_gal'][iz] # kpc
-        ## use correct r_gal = 2.7 * r_1/2 and units (Mpc)
+        ## use correct r_gal = 2.7 * r_1/2 (1% of surface density) and units
         r *= 2.7e-3 # Mpc
         
-        n = d['n_gal'][iz] # Mpc-3, comoving
+        n = d['n_gal'][iz] # Mpc-3
         comoving=False
     if r_gal is not None:
         r = r_gal
