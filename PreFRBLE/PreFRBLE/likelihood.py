@@ -383,6 +383,8 @@ def LikelihoodConvolve( f=[], x_f=[], dev_f=[], g=[], x_g=[], dev_g=[], log=True
     ## for copmutation, fill missing probability with artifical bin close to x=0
         f_bins = list(zip( np.append(x_minimal,x_f), np.append(x_minimal*1.1,x_f[1:]) ))
         P_f = np.append( 1-norm_f, P_f )
+        if len(dev_f):
+            stddev_f = np.append( 0, stddev_f ) ### consider deviation = 0 if contribution = 0
     else:
         f_bins = list(zip( x_f, x_f[1:] ))
     
@@ -391,6 +393,8 @@ def LikelihoodConvolve( f=[], x_f=[], dev_f=[], g=[], x_g=[], dev_g=[], log=True
     ## for computation, fill missing probability with artifical bins close to x=0
         g_bins = list(zip( np.append(x_minimal,x_g), np.append(x_minimal*1.1,x_g[1:]) ))
         P_g = np.append( 1-norm_g, P_g )
+        if len(dev_g):
+            stddev_g = np.append( 0, stddev_g ) ### consider deviation = 0 if contribution = 0
     else:
         g_bins = list(zip( x_g, x_g[1:] ))
     
@@ -409,15 +413,18 @@ def LikelihoodConvolve( f=[], x_f=[], dev_f=[], g=[], x_g=[], dev_g=[], log=True
 #                    P[i_x] += SP * M_p[i_f,i_g]
                     P[i_x] += SP * P_f[i_f] * P_g[i_g]
                     if len(dev_f):
-                        dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
+                        try:
+                            dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
+                        except:
+                            print( dev.shape, i_x, P_f.shape, stddev_f.shape, i_f, P_g.shape, stddev_g.shape, i_g )
 
                 if absolute: ## also consider y could be negative. same range, same probability. But different SP
                     SP = SampleProbability( x=f_bin, y=-np.array(g_bin)[::-1], z=x_bin, log=log ) ### y must be ordered y0 < y1
                     if SP:
                         P[i_x] += SP * P_f[i_f] * P_g[i_g]
 #                        P[i_x] += SP * M_p[i_f,i_g]
-                    if len(dev_f):
-                        dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
+                        if len(dev_f):
+                            dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
     
     ## variation to standard deviation to relative deviation, which can also be used for probability density
     if len(dev_f):
