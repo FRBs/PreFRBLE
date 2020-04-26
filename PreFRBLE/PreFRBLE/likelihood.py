@@ -462,7 +462,7 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
     
     """
 
-    P = Ps[0], xs[0], devs[0] if len(devs) else []
+    P = [Ps[0], xs[0], devs[0] if len(devs) else []]
     for i in range(1,len(Ps)):
         P1 = Ps[i], xs[i], devs[i] if len(devs) else []
         P = LikelihoodConvolve( f=P[0].copy(), x_f=P[1].copy(), dev_f=P[2].copy(), g=P1[0], x_g=P1[1], dev_g=P1[2], renormalize=1, **kwargs )  ### renormalize to 1 after each individual convolution. This assumes that at least one of the first two P is normalized to 1
