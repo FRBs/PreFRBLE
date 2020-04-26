@@ -325,13 +325,19 @@ def LikelihoodConvolve_old( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=n
 
 ## correct convolution
 
-def LikelihoodConvolve( f=[], x_f=[], g=[], x_g=[], log=True, renormalize=1, smooth=True, shrink=False, absolute=False ):
+def LikelihoodConvolve( f=[], x_f=[], dev_f=[], g=[], x_g=[], dev_g=[], log=True, renormalize=1, smooth=True, shrink=False, absolute=False ):
     """
     Copmute convolution of two likelihood functions f and g on bins x_f and x_g (sum(P*diff(x)) = norm)
     The result is the likelihood of sum of variables sampled from f and g
     
     Parameters
     ----------
+    f, g : array-like
+        values of likelihood function
+    x_f, x_g : array-like
+        bin ranges of f and g
+    dev_f, dev_g : array_like, optional
+        relative deviation of f and g. used to compute relative deviation of convolution according to Gaussian error propagation
     shrink : boolean   (depreceated)
          if True, reduce number of bins of result to standard number of bins
     log : boolean
@@ -352,22 +358,29 @@ def LikelihoodConvolve( f=[], x_f=[], g=[], x_g=[], log=True, renormalize=1, smo
     ## transform pdf to probability
     P_f = f*np.diff(x_f)
     P_g = g*np.diff(x_g)
+
+    ## transform relative deviation to standard deviation
+    if len(dev_f):
+        stddev_f = P_f*dev_f
+        stddev_g = P_g*dev_g
     
     ## find new range, number of bins identical to f
     x_min = np.min([x_f[0],x_g[0]]) if absolute else x_f[0]+x_g[0]  ## consider minimum to be minimum of both, i. e. impossible for values to cancel out completely defined as below this minimum. Should be legit as this low values cannot be observed anyways
     x_max = x_f[-1]+x_g[-1]
     
+    ## prepare result arrays
     if not log:
         x = np.linspace( x_min, x_max, len(x_f) )
     else:
         x = np.logspace( np.log10(x_min), np.log10(x_max), len(x_f) )
     P = np.zeros( len(P_f) )
+    dev = np.zeros( len(P_f) )
 
-    ## check for normalization
+    ## check for normalization  !!! correction only works for norm < 1, i. e. does not contribute to all measures !!!  to consider norm > 1, add same probability function norm times (renormalized to one, the last weighed for norm % 1. However, not needed for now.
     norm_f = np.round(LikelihoodNorm( P=f, x=x_f ),4)
     x_minimal = x.min()*1e-2
     if norm_f != 1:
-        ## and fill missing probability with artifical bins close to x=0
+    ## for copmutation, fill missing probability with artifical bin close to x=0
         f_bins = list(zip( np.append(x_minimal,x_f), np.append(x_minimal*1.1,x_f[1:]) ))
         P_f = np.append( 1-norm_f, P_f )
     else:
@@ -375,7 +388,7 @@ def LikelihoodConvolve( f=[], x_f=[], g=[], x_g=[], log=True, renormalize=1, smo
     
     norm_g = np.round(LikelihoodNorm( P=g, x=x_g ),4)
     if norm_g != 1:
-        ## and fill missing probability with artifical bins close to x=0
+    ## for computation, fill missing probability with artifical bins close to x=0
         g_bins = list(zip( np.append(x_minimal,x_g), np.append(x_minimal*1.1,x_g[1:]) ))
         P_g = np.append( 1-norm_g, P_g )
     else:
@@ -383,31 +396,48 @@ def LikelihoodConvolve( f=[], x_f=[], g=[], x_g=[], log=True, renormalize=1, smo
     
     
     ## matrix of multiplied probabilities
-    M_p = np.dot( (P_f).reshape(len(P_f),1), (P_g).reshape(1,len(P_g)) )
+#    M_p = np.dot( (P_f).reshape(len(P_f),1), (P_g).reshape(1,len(P_g)) )
 
     
-    ## for each new bin, find probability for contributions from bins in f and g
+    ## for each new bin, find probability for contributions from bins in f and g   #### brute force. how to improve speed ??
     for i_x, x_bin in enumerate(zip( x, x[1:] )):
         for i_f, f_bin in enumerate( f_bins ):
             for i_g, g_bin in enumerate( g_bins ):
 #                print( i_x, i_f, i_g, x_bin, f_bin, g_bin )
                 SP = SampleProbability( x=f_bin, y=g_bin, z=x_bin, log=log )
                 if SP:
-                    P[i_x] += SP * M_p[i_f,i_g]
-#                    P[i_x] += SP * P_f[i_f] * P_g[i_g]
+#                    P[i_x] += SP * M_p[i_f,i_g]
+                    P[i_x] += SP * P_f[i_f] * P_g[i_g]
+                    if len(dev_f):
+                        dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
+
                 if absolute: ## also consider y could be negative. same range, same probability. But different SP
                     SP = SampleProbability( x=f_bin, y=-np.array(g_bin)[::-1], z=x_bin, log=log ) ### y must be ordered y0 < y1
                     if SP:
-                        P[i_x] += SP * M_p[i_f,i_g]
+                        P[i_x] += SP * P_f[i_f] * P_g[i_g]
+#                        P[i_x] += SP * M_p[i_f,i_g]
+                    if len(dev_f):
+                        dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
     
+    ## variation to standard deviation to relative deviation, which can also be used for probability density
+    if len(dev_f):
+        dev = np.sqrt(dev) / P  
+        dev[np.isnan(dev)] = 0
+        
+    ## probability back to probability density
     P /= np.diff(x) * (1 + absolute )  ### care for double counting with negative values
+
     if smooth:
         P, x = LikelihoodSmooth( P=P, x=x )
     if absolute: ## doesn't exactly conserve normalization
         P /= LikelihoodNorm( P=P, x=x )        
     if renormalize:
         P *= renormalize/LikelihoodNorm( P=P, x=x )
-    return P, x
+
+    res = [P, x]
+    if len(dev_f):
+        res.append(dev)
+    return res
 
         
 
@@ -424,7 +454,6 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
         list of ranges of likelihood functions
     devs : list, optional
         list of relative deviations of likelihood functions to compute relative deviation of convolved function
-        !!!! ATTENTION !!!! deviation is not computed correctly if absolute=True (e. g. for RM)
     **kwargs for LikelihoodConvolve
 
     Returns
@@ -433,26 +462,19 @@ def LikelihoodsConvolve( Ps=[], xs=[], devs=[], **kwargs ):
     
     """
 
-    P, x, dev = Ps[0], xs[0], devs[0] if len(devs) else 0
+    P = Ps[0], xs[0], devs[0] if len(devs) else []
     for i in range(1,len(Ps)):
-        P1, x1, dev1 = Ps[i], xs[i], devs[i] if len(devs) else 0
-        if len(devs):
-            devA  = np.sum(P1*np.diff(x1)) *  dev * P
-            devB  = dev1 * P1 * np.sum( P*np.diff(x) )
-        P, x = LikelihoodConvolve( P.copy(), x.copy(), P1.copy(), x1.copy(), renormalize=1, **kwargs )  ### renormalize to 1 after each individual convolution. This assumes that at least one of the first two P is normalized to 1
-        if len(devs):
-            dev = np.sqrt(devA**2 + devB**2) / P
-        
-            ## where P=0 returns NaN. replace by 0 to not affect other data
-            dev[np.isnan(dev)] = 0
-
+        P1 = Ps[i], xs[i], devs[i] if len(devs) else []
+        P = LikelihoodConvolve( f=P[0].copy(), x_f=P[1].copy(), dev_f=P[2].copy(), g=P1[0], x_g=P1[1], dev_g=P1[2], renormalize=1, **kwargs )  ### renormalize to 1 after each individual convolution. This assumes that at least one of the first two P is normalized to 1
+        if not len(devs): ### very ugly bugfix, since only P and x are returned from LikelihoodConcolve if devs=[].  Make P an object class ...
+            P.append([])
     ## return renormalized likelihood
-    P /= np.sum(P*np.diff(x))
+    P[0] /= np.sum(P[0]*np.diff(P[1]))
 
-    res = [P,x]
-    if len(devs):
-        res.append(dev)
-    return res
+    if len(devs) == 0:
+        ## exclude dev from result
+        P = P[:-1]
+    return P
 
 
 def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True, sigma=1, std_nan=np.nan ):
