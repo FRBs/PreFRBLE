@@ -250,18 +250,19 @@ def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', populati
     PlotLikelihood( *P, measure=measure, ax=ax, **kwargs )
     plt.tight_layout()
 
-def PlotContributions( measure='DM', redshift=0.1, cumulative=False, N_inter=False, **scenario ):
+def PlotContributions( ax=None, dev=False, measure='DM', redshift=0.1, cumulative=False, N_inter=False, **scenario ):
     """ Plot likelihood function for contributions to measure from all regions in scenario for LoS ending at redshift """
-    fig, ax = plt.subplots()
+    if ax is None:
+        fig, ax = plt.subplots()
     for region in regions:
         models = scenario.get( region )
         if models:
             for model in models:
-                P = GetLikelihood( region=region, model=model, measure=measure, redshift=redshift, N_inter=N_inter )
+                P = GetLikelihood( region=region, model=model, measure=measure, redshift=redshift, N_inter=N_inter, dev=dev )
                 PlotLikelihood( *P, measure=measure, label=region+': '+Label(model) , linestyle=linestyle_region[region], ax=ax, cumulative=cumulative )
     ax.legend()
     ax.set_title( "redshift = %.1f" % redshift )
-    fig.tight_layout()
+#    fig.tight_layout()
 
 
 ############################################################################

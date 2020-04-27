@@ -1,5 +1,5 @@
-import numpy as np
-from PreFRBLE.likelihood import LikelihoodMeasureable, GetLikelihood_Full, GetLikelihood_Telescope, GetLikelihood_Redshift, Likelihoods
+import sys, numpy as np
+from PreFRBLE.likelihood import LikelihoodMeasureable, GetLikelihood_Full, GetLikelihood_Telescope, GetLikelihood_Redshift, RandomSample
 from PreFRBLE.physics import measure_range
 
 
@@ -17,41 +17,6 @@ def SampleLogFlat( lo=1., hi=2., N=10 ):
     return 10.**np.random.uniform( lo, hi, N )
 
 
-
-def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
-    """
-    returns sample of size N according to likelihood function P(x) 
-
-    Parameter
-    ---------
-    P, x : array-like
-        renormalized probability density function, i. e. sum(P*np.diff(x))=1
-    log: indicates whether x is log-scaled
-
-    Output
-    ------
-
-    res : list of N values, distributed according to P(x)
-
-    """
-    Pd = P*np.diff(x)
-    if np.round( np.sum(Pd), 4) != 1:
-        sys.exit( "function is not normalized, %f != 1" % (np.sum(Pd)) )
-    f = Pd.max()
-    lo, hi = x[0], x[-1]
-    if log:
-        lo, hi = np.log10( [lo,hi] )
-    res = []
-    while len(res) < N:
-        ## create random uniform sample in the desired range
-        r = np.random.uniform( high=hi, low=lo, size=N )
-        if log:
-            r = 10.**r
-        ## randomly reject candiates with chance = 1 - P to recreate P
-        z = np.random.uniform( size=N )
-        p = Likelihoods( r, P/f, x )
-        res.extend( r[ np.where( z < p )[0] ] )
-    return res[:N]
 
 
 

@@ -148,35 +148,65 @@ def SampleProbability(  x=(1,10), y=(1,10), z=(2,11), resolution_estimate=10, lo
         if True: plot graph that visualizes integral for probability
     
     """
-    if z[1] <= x[0]+y[0] or z[0] >= x[-1]+y[-1]:
-        ## in case probed range is impossible to hit
-        return 0.
+    if y[0] >= 0:
+        ## for the simple case of both x and y positive
+        if z[1] <= x[0]+y[0] or z[0] >= x[-1]+y[-1]:
+            ## in case probed range is impossible to hit
+            return 0.
+    else:  ## if y negative
+        range_diff = [ x[0]+y[1], x[1]+y[0] ]  ## difference of maximum and minimum range
+        if z[0] >= np.max( np.abs( range_diff ) ):
+            return 0
+#        elif (x[0]>y[1] or x[1]<y[0]) and z[1] < np.min( np.abs( range_diff ) ):
+#            return 0
+
     
+    ## support of first variable
     if log:
-        ## support of first variable
-        x_ = np.linspace(*np.log10(x), num=resolution_estimate+1) ## log10
+        x_range = np.linspace(*np.log10(x), num=resolution_estimate+1) ## log10
     else:
-        x_ = np.linspace(*x, num=resolution_estimate+1)
-    dx = np.diff(x_)
-    x_ = x_[:-1]+dx/2
+        x_range = np.linspace(*x, num=resolution_estimate+1)
+    dx = np.diff(x_range)
+    x_center = x_range[:-1]+dx/2
     if log:
-        x_ = 10.**x_
+        x_center = 10.**x_center  
 
-    ## maximum value to fit in range
-    y_max = z[1] - x_
-    y_max[y_max > y[1]] = y[1]
-    y_max[y_max < y[0]] = y[0]
+    ya = np.abs(y)  ## need absolute y several times
 
-    ## minimum value to fit in range
-    y_min = z[0] - x_
-    y_min[y_min < y[0]] = y[0]
-    y_min[y_min > y[1]] = y[1]
-        
+
+    ## minimum and maximum value of y to fit in range
+    if y[1] > 0 or True:  ## simple case of constructive contribution
+        y_max = z[1] - x_center
+        y_min = z[0] - x_center
+    else: ## for the case of deconstructive contribution, consider the absolute (also negative results are valid)
+        y_min = np.zeros_like( x_center )
+        y_max = np.zeros_like( x_center )
+
+        ## find, where result is positive or negative, i. e. x > y or x < y
+        x_lo = x_center < ya[0]  ## all combinations are negative
+        x_hi = x_center > ya[1] ## all combinations are positive
+
+        y_min[x_lo] = z[0] + x_center[x_lo]
+        y_min[x_hi] = x_center[x_hi] - z[1]
+
+        y_max[x_lo] = z[1] + x_center[x_lo]
+        y_max[x_hi] = x_center[x_hi] - z[0]
+
+        ## for those bins combinations that contain 0, assume all contribution ~0, thus no chance to hit bin
+        y_max[~(x_lo+x_hi)] = y_min[~(x_lo+x_hi)] = np.mean(ya) ### place both mind and max at same value somewhere in the center results in 0 contribution from these bins
+    
+    ## where exceeds parameter space, set to corresponding border
+    y_max[y_max > ya[1]] = ya[1]
+    y_max[y_max < ya[0]] = ya[0]
+
+    y_min[y_min < ya[0]] = ya[0]
+    y_min[y_min > ya[1]] = ya[1]
+ 
     if log:
         y_min, y_max = np.sort(np.log10(np.abs([y_min, y_max])), axis=0)
     
     ## total volume of possible combinations of x and y
-        V_tot = np.diff(np.log10(x)) * np.abs(np.diff(np.log10(np.abs(y))))   ### works for positive and negative y
+        V_tot = np.diff(np.log10(x)) * np.abs(np.diff(np.log10(ya)))   ### works for positive and negative y
     else:
         V_tot = np.diff(x)*np.diff(y)
     
@@ -186,12 +216,12 @@ def SampleProbability(  x=(1,10), y=(1,10), z=(2,11), resolution_estimate=10, lo
 
 
     if plot:
-        plt.plot(np.log10(x_) if log else x_,y_min, ls=':', lw=3)
-        plt.plot(np.log10(x_) if log else x_,y_max,ls='--',lw=3)
+        plt.plot(np.log10(x_center) if log else x_center,y_min, ls=':', lw=3)
+        plt.plot(np.log10(x_center) if log else x_center,y_max,ls='--',lw=3)
 
         if log:
-            plt.hlines( np.log10(np.abs(y)), *np.log10(x) )
-            plt.vlines( np.log10(x), *np.log10(np.abs(y)) )
+            plt.hlines( np.log10(ya), *np.log10(x) )
+            plt.vlines( np.log10(x), *np.log10(ya) )
             plt.xlabel(r"log$_{10}(x)$")
             plt.ylabel(r"log$_{10}(y)$")
         else:            
