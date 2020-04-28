@@ -68,7 +68,7 @@ def LikelihoodDeviation( P=[], x=[], N=1 ):
     return res
 
 
-def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
+def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0., density=False ):
     """
     returns likelihoods for given measurements according to likelihood function given by P and x
 
@@ -85,6 +85,8 @@ def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
         deviation of likelihood function, if given, return deviation of returned likelihoods
     minimal_likelihood : float
         value returned in case that measurement is outside x
+    density : boolean
+        if True, return probability density ( P ) instead of probability ( P*dx )
 
     Returns
     -------
@@ -96,7 +98,7 @@ def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
 
     likelihoods = np.zeros( len( measurements ) ) ## collector for likelihoods of measurements
     deviations = likelihoods.copy()
-    Pdx = P*np.diff(x)  ## probability for obtaining measure from within bin
+    prob = P if density else P*np.diff(x)  ## probability for obtaining measure from within bin
     isort = np.argsort( measurements )   ## sorted order of measurements
     i = 0  ## marker for current bin
     ## for each measurement (in ascending order)
@@ -110,7 +112,7 @@ def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0. ):
                 continue
             else:        ## otherwise, measure is in the bin
                 ## put result in correct place and stop checking bins
-                likelihoods[i_s] = Pdx[i-1]  if i > 0 else minimal_likelihood  ## if that was the lowest bound, probability is ->zero if measurement is outside the range of P, i. e. P~0
+                likelihoods[i_s] = prob[i-1]  if i > 0 else minimal_likelihood  ## if that was the lowest bound, probability is ->zero if measurement is outside the range of P, i. e. P~0
                 if len(dev):
                     deviations[i_s] = dev[i-1] if i > 0 else 1
                 break    ## continue with the next measurement
@@ -158,7 +160,8 @@ def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
             r = 10.**r
         ## randomly reject candiates with chance = 1 - P to recreate P
         z = np.random.uniform( size=N )
-        p = Likelihoods( r, P/f, x ) ## renormalize pdf to maximum value of probability, i. e. values at maximum probability are never rejected. This minimizes the number of rejected random draws
+        ## obtain probability for bins where measures measures are found
+        p = Likelihoods( r, P/f, x, density=False ) ### renormalize pdf to maximum value of probability, i. e. values at maximum probability are never rejected. This minimizes the number of rejected random draws
         res.extend( r[ np.where( z < p )[0] ] )
     return res[:N]
 
@@ -1054,7 +1057,7 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
     for iz, z in enumerate( redshift_bins ):
         ## calculate the likelihood of observed DM 
 #        Ps[:,iz] = Likelihoods( DMs, *GetLikelihood_Full( measure='DM', redshift=z, density=True, **scenario) ) 
-        Ps[:,iz], devs[:,iz] = Likelihoods( DMs, *GetLikelihood_Full( measure='DM', redshift=z, density=True, dev=True, **scenario) ) 
+        Ps[:,iz], devs[:,iz] = Likelihoods( DMs, *GetLikelihood_Full( measure='DM', redshift=z, density=True, dev=True, **scenario), density=True ) ### use probability density to compare same value of DM at different redshifts. Otherwise influenced by different binning 
     
     ## improve redshift estimate with additional information from tau, which is more sensitive to high overdensities in the LoS
     ## procedure is identical, the likelihood functions are multiplied
@@ -1062,7 +1065,7 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
         Ps_ = np.zeros( [len(DMs),len(redshift_bins)] )
         devs_ = Ps_.copy()
         for iz, z in enumerate(redshift_bins):
-            Ps_[:,iz], devs_[:,iz] = Likelihoods( taus, *GetLikelihood_Full( measure='tau', redshift=z, density=True, dev=True, **scenario) )  ### not all tau are measureable. However, here we compare different redshifts in the same scenario, so the amount of tau above tau_min is indeed important and does not affect the likelihood of scenarios. Instead, using LikelihoodObservable here would result in wrong estimates.
+            Ps_[:,iz], devs_[:,iz] = Likelihoods( taus, *GetLikelihood_Full( measure='tau', redshift=z, density=True, dev=True, **scenario), density=False )  ### not all tau are measureable. However, here we compare different redshifts in the same scenario, so the amount of tau above tau_min is indeed important and does not affect the likelihood of scenarios. Instead, using LikelihoodObservable here would result in wrong estimates.
         Ps *= Ps_
         devs = np.sqrt( devs**2 + devs_**2 ) 
         Ps_= 0
@@ -1140,7 +1143,7 @@ def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1
 #        print( res)
 #        result += res
 
-        likelihoods, deviations = Likelihoods( measurements=RMs, P=P, x=x, dev=P_dev )
+        likelihoods, deviations = Likelihoods( measurements=RMs, P=P, x=x, dev=P_dev, density=True ) ### consider probability density instead of probabibilty, which cannot be compared between different scenarios due to dependence on binning
         add = P_redshift*dredshift * likelihoods
         result += add
         result_dev += add**2 * ( redshift_dev**2 + deviations**2 )
@@ -1151,12 +1154,12 @@ def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1
     ## for localized events, instead use likelihood of DM and RM at host redshift
     for loc in localized:
         P, x, P_dev = GetLikelihood_Full( redshift=zs[loc], measure='DM', force=force, dev=True, **scenario )
-        [result[loc]], [result_dev[loc]] = Likelihoods( measurements=[DMs[loc]], P=P, x=x, dev=P_dev )
+        [result[loc]], [result_dev[loc]] = Likelihoods( measurements=[DMs[loc]], P=P, x=x, dev=P_dev, density=True )
         
 
         P, x, P_dev = GetLikelihood_Full( redshift=zs[loc], measure='RM', force=force, dev=True, **scenario )
-        P, x, P_dev = LikelihoodMeasureable( x=x, P=P, dev=P_dev, min=RM_min )
-        likelihoods, deviations = Likelihoods( measurements=[RMs[loc]], P=P, x=x, dev=P_dev )
+        P, x, P_dev = LikelihoodMeasureable( x=x, P=P, dev=P_dev, min=measure_range['RM'][0] )
+        likelihoods, deviations = Likelihoods( measurements=[RMs[loc]], P=P, x=x, dev=P_dev, density=True )
         result[loc] *= likelihoods[0]
         result_dev[loc] = result[loc]**2 * ( result_dev[loc]**2 + deviations[0]**2 )
 #        result[loc] *= Likelihoods( measurements=[RMs[loc]], P=P, x=x )[0]
