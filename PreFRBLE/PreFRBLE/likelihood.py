@@ -621,7 +621,6 @@ def LikelihoodsConvolve( *Ps, dev=True, log=True, N=50000, absolute=False, renor
             
     ## account for values to potentially cancel each other
         if absolute:
-            print('absolutely')
             sample[np.random.rand(N) > 0.5] *= -1  ### assume same likelihood for positive and negative values
         samples.append( sample )
     

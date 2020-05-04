@@ -24,10 +24,10 @@ def PlotBayes( x=np.ones(1), bayes=np.ones(1), title=None, label=None, width=1.0
     ax.set_yscale('log')
     ax.set_xlabel( label )
     if posterior:
-        ax.set_ylabel(r"$L/L_{\rm max}$")
+        ax.set_ylabel(r"$P/P_{\rm max}$")
     else:
         ax.set_ylabel(r"$\mathcal{B}/\mathcal{B}_{\rm max}$")
-#        ax.set_ylabel(r"$\mathcal{B} = \prod P / P_0$")
+#        ax.set_ylabel(r"$\mathcal{B} = \prod L / L_0$")
     if show_values: ## print value on top of each bar, .... doesnt work ...
         shift = bayes.max()/bayes.min()/10
         for xx, b in zip( x, bayes ):
@@ -62,10 +62,10 @@ def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', 
 
         
     if posterior:
-        P_label = r"L/L_{\rm max}"
+        P_label = r"P/P_{\rm max}"
     else:
         P_label = r"\mathcal{B}/\mathcal{B}_{\rm max}"
-#        P_label = r"\mathcal{B} = \prod P / P_0"
+#        P_label = r"\mathcal{B} = \prod L / L_0"
     if graphs:
         for ib, (b, Y) in enumerate( zip( bayes/bayes.max(), y ) ):
             if len(dev) > 0:
@@ -146,15 +146,12 @@ def PlotLikelihood( P=np.ones(1), x=np.arange(2), dev=None, density=True, cumula
 
     if measure is not None:
         ax.set_xlabel( UnitLabel( measure ) , fontdict={'size':16 } )
-        ylabel = ( r"P(%s)" % label_measure[measure] ) 
+        ylabel = ( r"L(%s)" % label_measure[measure] ) 
         if cumulative:
-            ylabel = r"$P({0}${1}$) = \int${2}${{\rm d}}${1}".format( '>' if cumulative == -1 else '<', label_measure[measure], ylabel  )
+            ylabel = r"$L({0}${1}$) = \int${2}${{\rm d}}${1}".format( '>' if cumulative == -1 else '<', label_measure[measure], ylabel  )
         elif log:
             ylabel += ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] )
         ax.set_ylabel( ylabel, fontdict={'size':18 } )
-#        ax.set_ylabel( ( r"P(%s)" % label_measure[measure] ) + ( ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] ) ), fontdict={'size':18 } )
-#        ax.set_xlabel( measure + ' [%s]' % units[measure], fontdict={'size':20, 'weight':'bold' } )
-#        ax.set_ylabel(  'Likelihood', fontdict={'size':24, 'weight':'bold' } )
     ax.tick_params(axis='both', which='major', labelsize=16)
 #    AllSidesTicks(ax)
 
