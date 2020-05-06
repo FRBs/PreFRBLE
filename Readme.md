@@ -63,7 +63,7 @@ Host Galaxy:
  - MW-like spiral galaxy, (NE2001 & JF12) -- no scattering
  - starburst dwarf galaxy, (Heesen et al. 2011) -- no scattering
 
-Itervening Galaxies:
+Intervening Galaxies:
  - ensemble of axisymmetric galaxies (Rodrigues et al. 2016 & 2018)
 
 Inter Galactic Medium:
