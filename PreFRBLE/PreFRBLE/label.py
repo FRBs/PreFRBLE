@@ -27,7 +27,7 @@ labels = {
     ### Progenitor
     'Piro18/uniform/JF12': 'uniform/MW',
     'Piro18/uniform/Heesen11': 'uniform/dwarf',
-    'Piro18/wind': 'wind',
+    'Piro18/wind': "Piro18",   #'wind',
     'Piro18/wind+SNR': 'wind+SNR',
 
     ### MW

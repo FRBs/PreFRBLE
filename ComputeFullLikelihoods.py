@@ -2,6 +2,13 @@ import numpy as np, sys
 from PreFRBLE.likelihood import ComputeFullLikelihood, ComputeTelescopeLikelihood, LikelihoodTelescope
 from PreFRBLE.parameter import telescopes, populations
 
+
+### This execution file is used to compute and write to file all likelihoods for full LoS scenarios and telescope observations
+###   in case that the computing cluster does not allow to use jupyter notebooks...
+###   After these calculations are done, other calculations will be finished much fast
+
+
+
 scenario = {
     'IGM' : ['primordial'],
     'Host' : ['Rodrigues18'],
@@ -25,18 +32,18 @@ scenarios = [
 
 
 
-## force new computation of existing results for full likelihood functions at different redshifts
-force=True
+## force new computation of existing results for full likelihood at different redshifts
+force=True  ## should be True in case old likelihoods shall be replaced, can be set to False if computation of new likelihoods crashes, in order to not compute results twice
 
 models_IGMF = [ 'alpha%i-3rd' % i for i in range(1,10) ]
 f_IGMs = np.arange(0.3,1.01,0.1) #[-1:]  ##              !!!!!!!!!
 
 
-## first measures that do not depend on B (only one IGM model needed)
+## start with measures that do not depend on B (only one IGM model needed)
 model = 'primordial'
 
 ''' 
-## tau only for primordial with f_IGM=1, since tau_IGM << tau, hence not sensible to changes in f_IGM  
+## tau only for primordial with f_IGM=1, since tau_IGM << tau, hence not sensible to changes in f_IGM. However, should be considered for smaller choices of outer scale in the IGM than 50 kpc
 for scenario_tmp in scenarios:
     for telescope in telescopes:
         for population in populations:
