@@ -168,10 +168,13 @@ def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
 
 
 
-def LikelihoodShift( x=[], P=[], shift=1. ):
+def LikelihoodShift( P=[], x=[], dev=[], shift=1. ):
     """ Shift x-values of likelihood function and renormalize accordingly: P'(x|shift) = shift * P(shift*x|1) """
     # x' = shift*x, thus P' = P dx/dx' = P / shift 
-    return P/shift, x*shift
+    res = [ P/shift, x*shift ]
+    if len(dev):
+        res.append(dev)
+    return res
 
 
 def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None, dev_weights=None, renormalize=False, min=None, max=None, smooth=True ):
@@ -1448,17 +1451,28 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
     >>> plt.errorbar( x[1:] - np.diff(x)/2, P, yerr=P*dev )
     
     """
+    L = None
     if not force:
         axes = ['P','x']
         if dev:
             axes.append('dev')
         try:
             with h5.File( likelihood_file_telescope, 'r' ) as f:
-                return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
+                L = [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
+#                return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
         except:
             print( 'cannot find P_Telescope and have to compute', KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', N_inter=N_inter, **scenario ) )
             pass
-    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
+    if L is None:
+        L = LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
+    
+    ## care for frequency dependent measures
+    if measure == 'tau' and telescope == 'CHIME':  ## CHIME observes at different frequency than 1300 (assumed to estimate tau), thus has different prediction for tau propto lambda/lambda_0)^(22/5)  
+        shift = ( telescope_frequency[telescope] / 1300 )**-4.4  ### this is ugly hardcoded workaround, find more beatiful solution allowing to consider frequency of individual FRBs
+        L = LikelihoodShift( *L, shift=shift )
+    
+    return L
+#    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
 
 
 

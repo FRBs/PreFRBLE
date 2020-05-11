@@ -148,7 +148,8 @@ def PlotLikelihood( P=np.ones(1), x=np.arange(2), dev=None, density=True, cumula
         ax.set_xlabel( UnitLabel( measure ) , fontdict={'size':16 } )
         ylabel = ( r"L(%s)" % label_measure[measure] ) 
         if cumulative:
-            ylabel = r"$L({0}${1}$) = \int${2}${{\rm d}}${1}".format( '>' if cumulative == -1 else '<', label_measure[measure], ylabel  )
+#            ylabel = r"$L({0}${1}$) = \int${2}${{\rm d}}${1}".format( '>' if cumulative == -1 else '<', label_measure[measure], ylabel  )
+            ylabel = r"$L({0}${1}$)$".format( '>' if cumulative == -1 else '<', label_measure[measure]  )
         elif log:
             ylabel += ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] )
         ax.set_ylabel( ylabel, fontdict={'size':18 } )

@@ -57,6 +57,13 @@ measure_range = { ## range of values accesible by telescope. should be set indiv
 }
 
 
+telescope_frequency = { ## centre observation frequency in MHz
+    'CHIME' : 600,
+    'ASKAP_incoh' : 1300,
+    'Parkes' : 1300,
+    
+}
+
 
 
 
