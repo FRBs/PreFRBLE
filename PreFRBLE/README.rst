@@ -1,6 +1,6 @@
 |License|
 
-TuPy: A tutorial on how to build a Python package
+PrEFRBLE: Probability Estimates for FRBs to obtain model Likelihood Estimates
 =================================================
 *PreFRBLE* is a Python package used to combine observations of Fast Radio Bursts (FRBs) to theoretical predictions, made by @shackste. It provides a number of methods to derive likelihood functions for the contribution from models of different regions along the line of sight of FRBs. These are combined to realistic scenarios and compared to observational data in order to quantify the likelihood of different models to reproduce observations of FRBs.
 
