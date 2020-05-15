@@ -60,7 +60,7 @@ def KeyRedshift( population='flat', telescope='none', axis='P' ):
     return '/'.join( [ population, telescope, axis] )
 
 #def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Local=['Piro18/uniform_JF12'] ):
-def KeyFull( measure='DM', axis='P', redshift=0.1, N_inter=False, **scenario ):
+def KeyFull( measure='DM', axis='P', redshift=0.1, N_inter=False, L0=1000, **scenario ):
     """ scenario key in likelihood_file_Full """
     scenario_ = CorrectScenario( measure, **scenario )
     models = []
@@ -71,12 +71,15 @@ def KeyFull( measure='DM', axis='P', redshift=0.1, N_inter=False, **scenario ):
             if region == 'Inter': ## in order to distinguish between intervening and host galaxies, which may use the same model
                 for i in range(len(model)):
                     model_[i] += '_{}Inter'.format( 'N' if N_inter else '' )
+            elif region == 'IGM' and measure == 'tau':  ## tau depends on L0, which can be changed in post-processing
+                for i in range(len(model)):
+                    model_[i] += '_L0{:.0f}kpc'.format( L0 )  ### initially computed assuming L0 = 1 Mpc
             models = np.append( models, model_ )
     models = np.append( models, [ np.round( redshift, redshift_accuracy ), measure, axis ] )
     return '/'.join( models )
 
 
-def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', N_inter=False, **scenario ):
+def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', N_inter=False, L0=1000, **scenario ):
     """ scenario key in likelihood_file_telescope """
     scenario_ = CorrectScenario( measure, **scenario )
     models = [ telescope, population ]
@@ -87,6 +90,9 @@ def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', 
             if region == 'Inter': ## in order to distinguish between intervening and host galaxies, which may use the same model
                 for i in range(len(model)):
                     model_[i] += '_{}Inter'.format( 'N' if N_inter else '' )
+            elif region == 'IGM' and measure == 'tau':  ## tau depends on L0, which can be changed in post-processing
+                for i in range(len(model)):
+                    model_[i] += '_L0{:.0f}kpc'.format( L0 )  ### initially computed assuming L0 = 1 Mpc
             models = np.append( models, model_ )
     models = np.append( models, [ measure, axis ] )
     return '/'.join( models )

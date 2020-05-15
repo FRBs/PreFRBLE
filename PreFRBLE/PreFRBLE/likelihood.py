@@ -840,7 +840,7 @@ def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, smooth=
     return res
 
 
-def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=False, **scenario ):
+def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=False, L0=1000., **scenario ):
     """
     return the full likelihood function for measure in the given scenario, i. e. convolution of P from all considered regions
     P, x and dev are written to likelihood_file_Full
@@ -858,6 +858,9 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
     N_inter : boolean
         if False: LoS should definitely entail an intervening galaxy  (P_Inter renormalized to 1)
         if True: it is unknown whether galaxies intersect the LoS or not (P_Inter renormalized to NInter(redshift) )
+    L0 : float
+        outer scale of turbulence in kpc assumed for IGM, default: 1000 kpc (Ryu et al.2008)
+        affects tau
     **scenario : dictionary
         list of models combined to one scenario
 
@@ -872,8 +875,8 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
         model = scenario.get( region )
         if model:
 #            print('full', region, model )
-#            P, x, P_dev = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, N_inter=N_inter, dev=True  )
-            P = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, N_inter=N_inter, dev=True  )
+#            P, x, P_dev = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, N_inter=N_inter, L0=L0, dev=True  )
+            P = LikelihoodRegion( region=region, models=model, measure=measure, redshift=redshift, N_inter=N_inter, L0=L0, dev=True  )
 #            print( region, LikelihoodNorm( P, x ) )
             Ps.append( P )
 #            Ps.append( P )
@@ -891,7 +894,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
 #    print( 'P_dev_convolve', P_dev.min(), P_dev.max(), np.array(devs).max(), measure )
     
     ## write to file
-    Write2h5( likelihood_file_Full, P, [ KeyFull( measure=measure, redshift=redshift, axis=axis, N_inter=N_inter, **scenario ) for axis in ['P', 'x', 'dev']] )
+    Write2h5( likelihood_file_Full, P, [ KeyFull( measure=measure, redshift=redshift, axis=axis, N_inter=N_inter, L0=L0, **scenario ) for axis in ['P', 'x', 'dev']] )
 
     
     if not dev:
@@ -1227,7 +1230,7 @@ def BayesFactorCombined( DMs=[], RMs=[], zs=None, scenario1={}, scenario2={}, ta
 ######################## READ LIKELIHOODS FROM FILE ########################
 ############################################################################
 
-def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False ):
+def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False, L0=1000. ):
     """ 
     read likelihood function of contribution of IGM model to measure for LoS to redshift from likelihood_file_IGM
 
@@ -1239,6 +1242,9 @@ def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, m
     absolue : boolean
         if True : return logarithmic likelihood of absolute value
         if False : return likelihood of value if negative values are allowed
+    L0 : float
+        outer scale of turbulence in kpc assumed for IGM, default: 1000 kpc (Ryu et al.2008)
+        affects tau
     typ : str, 'far' or 'near', depreciated
         indicates whether to use LoS in constrained volume ('near') or cosmological LoS ('far')
     
@@ -1251,7 +1257,11 @@ def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, m
         
     with h5.File( likelihood_file_IGM, 'r' ) as f:
 #        print( [KeyIGM( redshift=redshift, model=model, typ=typ, nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) for axis in ['P','x']] )
-        return [f[ KeyIGM( redshift=redshift, model=model, typ='far' if redshift >= 0.1 else 'near', nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
+        L = [f[ KeyIGM( redshift=redshift, model=model, typ='far' if redshift >= 0.1 else 'near', nside=nside, measure='|%s|' % measure if absolute else measure, axis=axis ) ][()] for axis in ['P','x']]
+
+    if measure=='tau' and  L0 != 1000:
+        L = LikelihoodShift( *L, shift=(L0/1000)**(-2./3) ) 
+    return L
 
 
 
@@ -1323,7 +1333,7 @@ get_likelihood = {
     'MW'         : GetLikelihood_MilkyWay  
 }
 
-def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_inter=False, smooth=True, **kwargs ):
+def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_inter=False, L0=1000., smooth=True, **kwargs ):
     """ 
     read likelihood function of any individual model of region written to file
     
@@ -1334,6 +1344,9 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_
         else: return proability function ( 1 = sum(P) )
     smooth : boolean
         if True, return smoothed P ( LikelihoodSmooth )
+    L0 : float
+        outer scale of turbulence in kpc assumed for IGM, default: 1000 kpc (Ryu et al.2008)
+        affects tau_IGM
     **kwargs for the GetLikelihood_* function of individual regions
 
     Returns
@@ -1349,8 +1362,12 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_
     >>> plt.errorbar( x[1:] - np.diff(x)/2, P, yerr=P*dev )
 
     """
-    if region == 'IGM' and kwargs['measure'] == 'RM':
-        kwargs['absolute'] = True
+    ## care for kwargs only used in one GetLikelihood_* procedure
+    if region == 'IGM':
+        if kwargs['measure'] == 'RM':
+            kwargs['absolute'] = True
+        elif kwargs['measure'] == 'tau':
+            kwargs['L0'] = L0
     elif N_inter and region == 'Inter':
         kwargs['N_inter'] = True
     try:
@@ -1367,7 +1384,7 @@ def GetLikelihood( region='IGM', model='primordial', density=True, dev=False, N_
     return res
     
 
-def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, N_inter=False, **scenario ):
+def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, **scenario ):
     """ 
     read likelihood function of measure for FRBs at redsift in full LoS scenario
 
@@ -1378,7 +1395,7 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, N_in
         if True: force new computation of full likelihood from individual models and write to likelihood_file_Full
     dev : boolean
         if True: also return deviation of full likelihood, according to propagation of errors of individual likelihoods
-    N_inter : boolean
+    N_inter : boolean  (in **scenario)
         if False: LoS should definitely entail an intervening galaxy  (P_Inter renormalized to 1)
         if True: it is unknown whether galaxies intersect the LoS or not (P_Inter renormalized to NInter(redshift) )
     scenario : dictionary
@@ -1413,14 +1430,14 @@ def GetLikelihood_Full( redshift=0.1, measure='DM', force=False, dev=False, N_in
         try:
             with h5.File( likelihood_file_Full, 'r' ) as f:
 #                print( [ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) for axis in axes ] )
-                return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
+                return [ f[ KeyFull( measure=measure, axis=axis, redshift=redshift, **scenario ) ][()] for axis in axes ]
         except:
-            print( 'cannot find P_full and have to compute', KeyFull( measure=measure, axis='P', redshift=redshift, N_inter=N_inter, **scenario ) )
+            print( 'cannot find P_full and have to compute', KeyFull( measure=measure, axis='P', redshift=redshift, **scenario ) )
             pass
     ## compute and write to file
-    return LikelihoodFull( measure=measure, redshift=redshift, dev=dev, N_inter=N_inter, **scenario )
+    return LikelihoodFull( measure=measure, redshift=redshift, dev=dev, **scenario )
 
-def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, dev=False, N_inter=False, **scenario ):
+def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM', force=False, dev=False, **scenario ):
     """ 
     read likelihood function of measure to be observed by telescope in case of population
 
@@ -1431,7 +1448,7 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
         if True: force new computation of full likelihood from individual models and write to likelihood_file_Full
     dev : boolean
         if True: also return deviation of full likelihood, according to propagation of errors of individual likelihoods
-    N_inter : boolean
+    N_inter : boolean (in **scenario)
         if False: LoS should definitely entail an intervening galaxy  (P_Inter renormalized to 1)
         if True: it is unknown whether galaxies intersect the LoS or not (P_Inter renormalized to NInter(redshift) )
     scenario : dictionary
@@ -1458,13 +1475,13 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
             axes.append('dev')
         try:
             with h5.File( likelihood_file_telescope, 'r' ) as f:
-                L = [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
-#                return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, N_inter=N_inter, **scenario ) ][()] for axis in axes ]
+                L = [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, **scenario ) ][()] for axis in axes ]
+#                return [ f[ KeyTelescope( telescope=telescope, population=population, measure=measure, axis=axis, **scenario ) ][()] for axis in axes ]
         except:
-            print( 'cannot find P_Telescope and have to compute', KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', N_inter=N_inter, **scenario ) )
+            print( 'cannot find P_Telescope and have to compute', KeyTelescope( telescope=telescope, population=population, measure=measure, axis='P', **scenario ) )
             pass
     if L is None:
-        L = LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
+        L = LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, **scenario )
     
     ## care for frequency dependent measures
     if measure == 'tau' and telescope == 'CHIME':  ## CHIME observes at different frequency than 1300 (assumed to estimate tau), thus has different prediction for tau propto lambda/lambda_0)^(22/5)  
@@ -1472,7 +1489,7 @@ def GetLikelihood_Telescope( telescope='Parkes', population='SMD', measure='DM',
         L = LikelihoodShift( *L, shift=shift )
     
     return L
-#    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, N_inter=N_inter, **scenario )
+#    return LikelihoodTelescope( population=population, telescope=telescope, measure=measure, force=force, dev=dev, **scenario )
 
 
 

@@ -64,7 +64,7 @@ def Label( model ):
     ## check for model modifiers
     if '_C' in model:
         label += r", $f_{{\rm IGM}} = {:.1f}$".format( 1e-3*float(model.split('_C')[-1]) )
-                        
+
     if label:
         return label 
     else:
