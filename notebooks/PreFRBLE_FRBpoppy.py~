@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import matplotlib
+get_ipython().run_line_magic('matplotlib', 'inline')
+import frbpoppy, matplotlib.pyplot as plt, numpy as np
+from frbpoppy import *
+from Convenience import *
+
+
+# In[2]:
+
+
+PreFRBLE_population = { 'z_max':6., 'W_m':0.307115, 'W_v':0.692885, 'H_0':67.77 }  # 'alpha':logN/logS=?, 'emission_range':[min,max in Hz]=? }
+
+
+# In[2]:
+
+
+PLOT = False
+
+# Generate an FRB population
+cosmic_pop = CosmicPopulation(1e5, name='example', **PreFRBLE_population )
+
+# Setup a survey
+survey = Survey('chime')
+
+# Observe the FRB population
+survey_pop = SurveyPopulation(cosmic_pop, survey, rate_limit=False)
+
+
+# Check the detection rates
+print(survey_pop.rates())
+
+# Plot populations
+if PLOT:
+    plot(cosmic_pop, survey_pop, frbcat=False) # frbcat='parkes')
+
+
+# In[3]:
+
+
+N = 1e5
+#Setup a survey
+survey = Survey('chime')
+for n_model, color in zip( ['sfr','smd','vol_co'], ['blue','red','green']):
+    # Generate an FRB population
+    cosmic_pop = CosmicPopulation(N, name=n_model, n_model=n_model, **PreFRBLE_population )
+    
+    # Observe the FRB population
+    survey_pop = SurveyPopulation(cosmic_pop, survey, rate_limit=False)
+    
+    P, x = histogram(cosmic_pop.frbs.z, density=True, bins=60, range=[0,6])
+#    P, x = np.histogram(cosmic_pop.frbs.z, density=True, bins=60, range=[0,6])
+    plt.plot( x[:-1]+np.diff(x)/2, P, label='cosmic population '+n_model, linestyle=':', color=color)
+    
+    Write2h5( likelihood_file_redshift, [P,x], [ KeyRedshift( n_model, "None", axis )  for axis in ["P","x"] ] )
+    
+    P, x = histogram(survey_pop.frbs.z, density=True, bins=60, range=[0,6])
+#    P, x = np.histogram(survey_pop.frbs.z, density=True, bins=60, range=[0,6])
+    plt.plot( x[:-1]+np.diff(x)/2, P, label='CHIME selection '+n_model, color=color)
+    
+    Write2h5( likelihood_file_redshift, [P,x], [ KeyRedshift( n_model, "CHIME", axis )  for axis in ["P","x"] ] )
+    
+plt.yscale('log')
+plt.xlabel('redshift')
+plt.ylabel('likelihood')
+plt.legend()
+
+
+# In[5]:
+
+
+for n_model, color in zip( ['sfr','smd','vol_co'], ['blue','red','green']):
+    P, x = GetLikelihood_Redshift( model=n_model, telescope='None')
+    plt.plot( x[:-1]+np.diff(x)/2, P, label='cosmic population '+n_model, linestyle=':', color=color)
+    
+    P, x = GetLikelihood_Redshift( model=n_model, telescope='CHIME')
+    plt.plot( x[:-1]+np.diff(x)/2, P, label='CHIME selection '+n_model, color=color)
+
+plt.yscale('log')
+plt.xlabel('redshift')
+plt.ylabel('likelihood')
+plt.legend()
+

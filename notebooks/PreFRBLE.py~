@@ -1,0 +1,55 @@
+import numpy as np
+from Convenience import *
+
+def RedshiftProbability( DMs, model, SMs=None, population='flat', telescope='None' ):
+    ## returns likelihood function of redshift for an observed DM
+    ## can be used to obtain estimate and deviation
+    
+    Pz = np.zeros( [len(DMs),len(zs_)] )
+    ## for each redshift
+    for iz, z in enumerate(zs_):
+        ## calculate the likelihood of observed DM 
+        Pz[:,iz] = Probabilities( DMs, *FullProbability( typ='DM', z=z, density=True, **model) ) 
+    
+    ## improve redshift estimate with additional information from SM, which is more sensitive to high overdensities in the LoS
+    if SMs it not None:
+        Pz_ = np.zeros( [len(DMs),len(zs_)] )
+        for iz, z in enumerate(zs_):
+            Pz_[:,iz] = Probabilities( SMs, *FullProbability( typ='SM', z=z, density=True, **model) ) 
+        Pz *= Pz_
+    
+    ## consider prior likelihood on redshift according to FRB population and telescope selection effects 
+    if population == 'flat':
+        pi_z = np.array([1.])
+    else:
+        pi_z = GetLikelihood_Redshift( population=population, telescope=telescope )
+    Pz *= np.resize( pi_z, [1,len(zs_)]
+                    
+    ## renormalize to 1 for every DM
+    Pz /= np.resize( np.sum( Pz * np.resize( np.diff( zs_range ), [1,len(zs_range)-1] ), axis=1 ), [len(DMs),1] )  
+    
+    return Pz, zs_range
+
+
+
+def CombinedLikelihood( DMs, RMs, model={}, prior_BO=1., SMs=None, population='flat', telescope='None' ):
+    res = np.zeros( len(DMs) )
+    
+    #### !!!!! careful here!!! the full probability space is not normalized to 1 !!!!
+    
+    P_z_DMs, zs = RedshiftProbability( DMs, model, SMs=SMs, population=population, telescope=telescope )
+    
+    for z, p_z in zip( zs_, P_z_DMs.transpose() ):
+#        res += prior_BO * p_z * Probabilities( RMs, *FullProbability( typ='RM', z=z, density=False, **model) )
+        res += prior_BO * p_z * Probabilities( RMs, *ObservableProbability( typ='RM', z=z, density=False, **model) )
+#    nans = np.isnan(res)
+#    infs = np.isinf(res)
+#    if np.any( nans ):
+#        res[ nans ] = 1.  # clean NaNs for now !!!
+#    if np.any( infs ):
+#        res[ infs ] = 1.  # clean infs for now !!!
+#    return np.prod(res)
+    return res
+
+def CombinedBayesFactor( DMs, RMs, model1, model2 ):
+    return np.prod( CombinedLikelihood( DMs, RMs, model1 ) / CombinedLikelihood( DMs, RMs, model2 ) )

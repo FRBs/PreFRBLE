@@ -1,0 +1,27 @@
+#!/bin/bash -x
+#SBATCH --job-name=PreFRBLE
+#SBATCH --dependency=singleton
+#SBATCH --output=log/log_%x%j.out
+#SBATCH --error=log/log_%x%j.err
+#SBATCH --mail-user=stefan.hackstein@hs.uni-hamburg.de
+#SBATCH --partition=std
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=12:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-type=END
+#SBATCH --export=NONE
+
+cd /work/stuf315/PreFRBLE
+
+source .activate_PreFRBLE
+
+IGMF=$1
+
+ipython ComputeFullLikelihoods.py $IGMF --ipython-dir=tmp
+
+
+#for IGMF in 0 4 7 8; do
+#    ipython ComputeFullLikelihoods.py $IGMF --ipython-dir=tmp
+#done
+
