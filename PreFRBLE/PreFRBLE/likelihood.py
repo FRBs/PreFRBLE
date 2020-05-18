@@ -5,13 +5,13 @@ from tqdm import trange
 from PreFRBLE.convenience import *
 from PreFRBLE.parameter import *
 from PreFRBLE.physics import *
-
+from PreFRBLE.LikelihoodFunction import LikelihoodFunction
 
 ############################################################################
 ############### MATHEMATICAL LIKELIHOOD STANDARD OPERATIONS ################
 ############################################################################
 
-def Likelihood( data=np.arange(1,3), bins=10, range=None, density=True, log=False, weights=None ):
+def Likelihood( data=np.arange(1,3), bins=10, range=None, density=True, log=False, weights=None, **kwargs ):
     """ wrapper for numpy.histogram that allows for log-scaled probability density function, used to compute likelihood function """
     if log:
         if range is not None:
@@ -25,13 +25,16 @@ def Likelihood( data=np.arange(1,3), bins=10, range=None, density=True, log=Fals
         if range is None:
             range = ( np.min(data), np.max(data) )
         h, x = np.histogram( data, bins=bins, range=range, density=density, weights=weights )
-    return h, x
+    
+    L = LikelihoodFunction( P=h, x=x, **kwargs )
+    return L
+#    return h, x
 
 Histogram = Likelihood ## old name, replace everywhere
 
 
 
-
+### !!! depreceated, remove
 def LikelihoodSmooth( P=[], x=[], dev=[], mode='MovingAverage' ):
     """ 
     Smooth likelihood function P(x)
@@ -57,10 +60,14 @@ def LikelihoodSmooth( P=[], x=[], dev=[], mode='MovingAverage' ):
     return res
         
 
+
+### !!! depreceated, remove
 def LikelihoodNorm( P=[], x=[], dev=[] ):
     """ Compute norm of likelihood function P """
     return np.sum(P*np.diff(x))
 
+
+### !!! depreceated, remove
 def LikelihoodDeviation( P=[], x=[], N=1 ):
     """ compute relative deviation (Poisson noise) of likelihood function of individual model obtained from sample of N events """
     res =  ( P*np.diff(x)*N )**-0.5
@@ -68,6 +75,8 @@ def LikelihoodDeviation( P=[], x=[], N=1 ):
     return res
 
 
+
+### !!! depreceated, remove
 def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0., density=False ):
     """
     returns likelihoods for given measurements according to likelihood function given by P and x
@@ -129,6 +138,7 @@ def Likelihoods( measurements=[], P=[], x=[], dev=[], minimal_likelihood=0., den
         return likelihoods
         
 
+### !!! depreceated, remove
 def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
     """
     returns sample of size N according to likelihood function P(x) 
@@ -161,13 +171,13 @@ def RandomSample( N=1, P=np.array(0), x=np.array(0), log=True ):
         ## randomly reject candiates with chance = 1 - P to recreate P
         z = np.random.uniform( size=N )
         ## obtain probability for bins where measures measures are found
-        p = Likelihoods( r, P/f, x, density=False ) ### renormalize pdf to maximum value of probability, i. e. values at maximum probability are never rejected. This minimizes the number of rejected random draws
+        p = Likelihoods( r, P/f, x, density=False ) ### renormalize pdf to maximum value of probability, such that values at maximum probability are never rejected. This minimizes the number of rejected random draws
         res.extend( r[ np.where( z < p )[0] ] )
     return res[:N]
 
 
 
-
+### !!! depreceated, remove
 def LikelihoodShift( P=[], x=[], dev=[], shift=1. ):
     """ Shift x-values of likelihood function and renormalize accordingly: P'(x|shift) = shift * P(shift*x|1) """
     # x' = shift*x, thus P' = P dx/dx' = P / shift 
@@ -177,6 +187,8 @@ def LikelihoodShift( P=[], x=[], dev=[], shift=1. ):
     return res
 
 
+
+### !!!! modify
 def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None, dev_weights=None, renormalize=False, min=None, max=None, smooth=True ):
     """
     add together several likelihood functions
@@ -281,6 +293,8 @@ def LikelihoodsAdd( Ps=[], xs=[], devs=[], log=True, shrink=False, weights=None,
         res.append( dev )
     return res
 
+
+### !!! depreceated, remove
 def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True, renormalize=False, **kwargs_LikelihoodsAdd ):
     """ reduce number of bins in likelihood function, contains normalization """
     ### Actual work is done by LikelihoodsAdd, which adds up several P to new range with limited number of bins
@@ -290,298 +304,7 @@ def LikelihoodShrink( P=np.array(0), x=np.array(0), dev=[], bins=100, log=True, 
     return LikelihoodsAdd( [P, np.zeros(len(P))], [x,x], devs=devs, shrink=bins, log=log, renormalize=renorm, **kwargs_LikelihoodsAdd )
 
 
-def LikelihoodConvolve_old( f=np.array(0), x_f=np.array(0), g=np.array(0), x_g=np.array(0), shrink=True, log=True, absolute=False, renormalize=1, smooth=True, old=False ):
-    """
-    compute convolution of likelihood functions f & g, i. e. their multiplied likelihood
-
-    Parameters
-    ----------
-    shrink : boolean
-         if True, reduce number of bins of result to standard number of bins
-    log : boolean
-         indicates whether x_f and x_g are log-scaled
-    absolute : boolean
-        indicate whether likelihood describes absolute value (possibly negative)
-        if True, allow to values to cancel out by assuming same likelihood for positive and negative values
-    smooth : boolean
-        if True, return smoothed P ( LikelihoodSmooth )
-
-    Returns
-    -------
-    P, x : convolve likelihood function values and range
-    """
-    if absolute:
-    ##   allow x-values to cancel out, assume same likelihood for + and -
-        x_f = np.append( -x_f[:0:-1], np.append( 0, x_f[1:] ) )
-        f = np.append( f[::-1], f )
-        x_g = np.append( -x_g[:0:-1], np.append( 0, x_g[1:] ) )
-        g = np.append( g[::-1], g )
-    
-    ## matrix of multiplied probability densities 
-    if old:
-        M_p = np.dot( f.reshape(len(f),1), g.reshape(1,len(g)) )
-    else:
-    ## matrix of multiplied probabilities
-        M_p = np.dot( (f*np.diff(x_f)).reshape(len(f),1), (g*np.diff(x_g)).reshape(1,len(g)) )
-
-    
-    ## matrix of combined ranges
-    M_x = np.add( x_f.reshape(len(x_f),1), x_g.reshape(1,len(x_g)) )
-    
-    ## ranges of convolution
-    x = np.unique(M_x)
-    ## convolution probability
-    P = np.zeros( len(x)-1 )
-
-    ##   convolve by looping through M_p
-    for i in range( len(f) ):
-        for j in range( len(g) ):
-    ##   for each entry, find the corresponding range in M_x
-            in_ = np.where( x == M_x[i][j] )[0][0]
-            out = np.where( x == M_x[i+1][j+1] )[0][0]
-    ##   and add P * dx to convolved probability in that range
-            if old:
-                P[in_:out] += ( M_p[i][j] * np.diff(x[in_:out+1]) )
-            else:
-                P[in_:out] += M_p[i][j]  
-#            P[in_:out] += ( M_p[i][j] * (M_x[i+1][j+1] - M_x[i][j]) )
-
-    if absolute:
-    ##   add negative probability to positive
-        x = x[ x>=0] ### this makes x[0]=0, which is bad for log scale...
-        x[0] = x[1]**2/x[2] ### rough, but okay... this is very close to and definitely lower than x[1] and the lowest part does not affect much the rest of the function. The important parts of the function are reproduced well
-#        x = np.append( x_min, x[1+len(x)/2:] )
-        P = np.sum( [ P[:int(len(P)/2)][::-1], P[int(len(P)/2):] ], axis=0 )
-
-    ## transform convolved probability to likelihood function (pdf)
-    P /= np.diff(x)
-
-    ## renormalize full integral
-    if renormalize:
-        P *= renormalize / np.sum( P*np.diff(x) )
-    if shrink:
-        P, x = LikelihoodShrink( P, x, log=log )
-    if smooth:
-        P, x = LikelihoodSmooth( P=P, x=x )
-    return P, x
-
-
-
-def LikelihoodConvolve_old( f=[], x_f=[], dev_f=[], g=[], x_g=[], dev_g=[], log=True, renormalize=1, smooth=True, shrink=False, absolute=False ):
-    """
-    Compute convolution of two likelihood functions f and g on bins x_f and x_g (sum(P*diff(x)) = norm)
-    The result is the likelihood of sum of variables sampled from f and g
-    
-    Parameters
-    ----------
-    f, g : array-like
-        values of likelihood function
-    x_f, x_g : array-like
-        bin ranges of f and g
-    dev_f, dev_g : array_like, optional
-        relative deviation of f and g. used to compute relative deviation of convolution according to Gaussian error propagation
-    shrink : boolean   (depreceated)
-         if True, reduce number of bins of result to standard number of bins
-    log : boolean
-         indicates whether x_f and x_g are log-scaled
-    absolute : boolean
-        indicate whether likelihood describes absolute value (possibly negative)
-        if True, allow to values to cancel out by assuming same likelihood for positive and negative values
-    smooth : boolean
-        if True, return smoothed P ( LikelihoodSmooth )
-    renormalize : float
-        renromalization factor of final result. False to keep normalization after convolution
-
-    Returns
-    -------
-    P, x : convolve likelihood function values and range
-
-    """
-    ## transform pdf to probability
-    P_f = f*np.diff(x_f)
-    P_g = g*np.diff(x_g)
-
-    ## transform relative deviation to standard deviation
-    if len(dev_f):
-        stddev_f = P_f*dev_f
-        stddev_g = P_g*dev_g
-    
-    ## find new range, number of bins identical to f
-    x_min = np.min([x_f[0],x_g[0]]) if absolute else x_f[0]+x_g[0]  ## consider minimum to be minimum of both, i. e. impossible for values to cancel out completely defined as below this minimum. Should be legit as this low values cannot be observed anyways
-    x_max = x_f[-1]+x_g[-1]
-    
-    ## prepare result arrays
-    if not log:
-        x = np.linspace( x_min, x_max, len(x_f) )
-    else:
-        x = np.logspace( np.log10(x_min), np.log10(x_max), len(x_f) )
-    P = np.zeros( len(P_f) )
-    dev = np.zeros( len(P_f) )
-
-    ## check for normalization  !!! correction only works for norm < 1, i. e. does not contribute to all measures !!!  to consider norm > 1, add same probability function norm times (renormalized to one, the last weighed for norm % 1. However, not needed for now.
-    norm_f = np.round(LikelihoodNorm( P=f, x=x_f ),4)
-    x_minimal = x.min()*1e-6  ### used to consider missing events from contribution
-    if norm_f != 1:
-    ## for copmutation, fill missing probability with artifical bin close to x=0
-        f_bins = list(zip( np.append(x_minimal,x_f), np.append(x_minimal*1.01,x_f[1:]) ))
-        P_f = np.append( 1-norm_f, P_f )
-        if len(dev_f):
-            stddev_f = np.append( 0, stddev_f ) ### consider deviation = 0 if contribution = 0
-    else:
-        f_bins = list(zip( x_f, x_f[1:] ))
-    
-    norm_g = np.round(LikelihoodNorm( P=g, x=x_g ),4)
-    if norm_g != 1:
-    ## for computation, fill missing probability with artifical bins close to x=0
-        g_bins = list(zip( np.append(x_minimal,x_g), np.append(x_minimal*1.1,x_g[1:]) ))
-        P_g = np.append( 1-norm_g, P_g )
-        if len(dev_g):
-            stddev_g = np.append( 0, stddev_g ) ### consider deviation = 0 if contribution = 0
-    else:
-        g_bins = list(zip( x_g, x_g[1:] ))
-    
-    
-    ## matrix of multiplied probabilities
-#    M_p = np.dot( (P_f).reshape(len(P_f),1), (P_g).reshape(1,len(P_g)) )
-
-    
-    ## for each new bin, find probability for contributions from each combination bins in f and g   #### brute force. how to improve speed ??
-    for i_x, x_bin in enumerate(zip( x, x[1:] )):
-        for i_f, f_bin in enumerate( f_bins ):
-            for i_g, g_bin in enumerate( g_bins ):
-#                print( i_x, i_f, i_g, x_bin, f_bin, g_bin )
-                SP = SampleProbability( x=f_bin, y=g_bin, z=x_bin, log=log )
-                if SP:
-                    P[i_x] += SP * P_f[i_f] * P_g[i_g]
-                    if len(dev_f):
-                        dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
-
-                if absolute: ## also consider negative contribution, i. e. y could be negative. same range, same probability. But different SP using -y
-#                    SP = SampleProbability( x=f_bin, y=-np.array(g_bin)[::-1], z=x_bin, log=log ) ### y must be ordered y0 < y1
-                    SP = SampleProbability( x=f_bin, y=g_bin, z=x_bin, log=log ) ### y must be ordered y0 < y1
-                    if SP:
-                        P[i_x] += SP * P_f[i_f] * P_g[i_g]
-                        if len(dev_f):
-                            dev[i_x] += SP**2 * ( (P_f[i_f] * stddev_g[i_g])**2 + (stddev_f[i_f] * P_g[i_g])**2 )
-    
-    ## variation to standard deviation to relative deviation, which can also be used for probability density
-    if len(dev_f):
-        dev = np.sqrt(dev) / P  
-        dev[np.isnan(dev)] = 0
-        
-    ## probability back to probability density
-    P /= np.diff(x) * (1 + absolute )  ### care for double counting with negative values
-
-    if smooth:
-        P, x = LikelihoodSmooth( P=P, x=x )
-    if absolute: ## doesn't exactly conserve normalization
-        P /= LikelihoodNorm( P=P, x=x )        
-    if renormalize:
-        P *= renormalize/LikelihoodNorm( P=P, x=x )
-
-    res = [P, x]
-    if len(dev_f):
-        res.append(dev)
-    return res
-
-
-
-
-def LikelihoodConvolve_old( f=[], x_f=[], dev_f=[], g=[], x_g=[], dev_g=[], log=True, N=50000, absolute=False, renormalize=False, smooth=True, shrink=False ):
-    """
-    compute convolution of two pdf in brute force method, i. e. add samples of each pdf 
-    Parameters
-    ----------
-    f, g : array-like
-        values of likelihood functions to be convolved
-    x_f, x_g : array-like
-        bin ranges of f and g
-    dev_f, dev_g : array_like, optional (depreceated)
-        relative deviation of f and g. used to compute relative deviation of convolution according to Gaussian error propagation
-    N : integer
-        size of sample to compute convolution and corresponding deviation
-    shrink : boolean   (depreceated)
-         if True, reduce number of bins of result to standard number of bins
-    log : boolean
-         indicates whether x_f and x_g are log-scaled
-    absolute : boolean
-        indicate whether likelihood describes absolute value (possibly negative)
-        if True, allow to values to cancel out by assuming same likelihood for positive and negative values
-    smooth : boolean
-        if True, return smoothed P ( LikelihoodSmooth )
-    renormalize : float (depreceated)
-        renormalization factor of final result. False to keep normalization after convolution
-
-    Returns
-    -------
-    P, x, dev : convolve likelihood function values, range and relative deviation
-
-    """
-        
-    ##  obtain sample for each pdf
-    fs = np.array( RandomSample( N=N, P=f/LikelihoodNorm(P=f, x=x_f), x=x_f, log=log ) ) ### requires norm = 1. other cases are cared for later
-    gs = np.array( RandomSample( N=N, P=g/LikelihoodNorm(P=g, x=x_g), x=x_g, log=log ) )
-    
-    samples = [fs, gs]
-    
-    ## modify the samples to match given case
-    for P, x, i in [ [f,x_f,0], [g,x_g,1] ]:
-        
-    ## account for norm < 1, i. e. distribution only contributes to amount norm of values
-        norm = np.round(LikelihoodNorm( P=P, x=x ),4)
-        if norm != 1:
-            samples[i][np.random.rand(N) > norm] = 0
-    
-    ## account for values to potentially cancel each other
-        if absolute:
-            samples[i][np.random.rand(N) > 0.5] *= -1  ### assume same likelihood for positive and negative values
-
-    
-    ## compute likelihood
-    P, x = Likelihood( np.abs( np.sum( samples, axis=0 ) ), log=log, bins=len(f) )
-    dev = LikelihoodDeviation( P=P, x=x, N=N )
-    if smooth:
-        P, x = LikelihoodSmooth( P=P, x=x )
-    return P, x, dev        
-
-
-def LikelihoodsConvolve_old( Ps=[], xs=[], devs=[], **kwargs ):
-    """ 
-    iteratively convolve likelihood functions
-    
-    Parameters
-    ----------
-    Ps : list
-        list of values of likelihood functions
-    xs : list
-        list of ranges of likelihood functions
-    devs : list, optional
-        list of relative deviations of likelihood functions to compute relative deviation of convolved function
-    **kwargs for LikelihoodConvolve
-
-    Returns
-    -------
-    P, x, (dev) : values, bin-ranges, (deviation) of renormalized convolved likelihood function 
-    
-    """
-
-    P = [Ps[0], xs[0], devs[0] if len(devs) else []]
-    for i in range(1,len(Ps)):
-        P1 = Ps[i], xs[i], devs[i] if len(devs) else []
-        P = LikelihoodConvolve( f=P[0].copy(), x_f=P[1].copy(), dev_f=P[2].copy(), g=P1[0], x_g=P1[1], dev_g=P1[2], renormalize=1, **kwargs )  ### renormalize to 1 after each individual convolution. This assumes that at least one of the first two P is normalized to 1
-        if not len(devs): ### very ugly bugfix, since only P and x are returned from LikelihoodConcolve if devs=[].  Make P an object class ...
-            P.append([])
-    ## return renormalized likelihood
-    P[0] /= np.sum(P[0]*np.diff(P[1]))
-
-    if len(devs) == 0:
-        ## exclude dev from result
-        P = P[:-1]
-    return P
-
-
-
-
+### !!!! modify
 def LikelihoodsConvolve( *Ps, dev=True, log=True, N=50000, absolute=False, renormalize=False, smooth=True, shrink=False ):
     """
     compute convolution of likelihood functions P in brute force method, i. e. add samples of size N of each P
@@ -637,6 +360,7 @@ def LikelihoodsConvolve( *Ps, dev=True, log=True, N=50000, absolute=False, renor
     return res
 
 
+### !!! depreceated, remove
 def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=True, sigma=1, std_nan=np.nan ):
     """
     computes the estimate value and deviation from likelihood function P (must be normalized to 1)
@@ -703,10 +427,10 @@ def Likelihood2Expectation( P=np.array(0), x=np.array(0), log=True,  density=Tru
     return expect, deviation
 
 
-def WeighBayesFactor( B=1, w=1 ):
-    """ Weigh the significance of Bayes factor B with weight w"""
-    w_log = np.log10(w)
-    return 10.**( np.log10(B) * (1+np.abs(w_log))**(1 - 2*(w_log<0) - (w_log==0) )  ) 
+def WeighBayesFactor( bayes=1, weight=1 ):
+    """ Weigh the significance of Bayes factor bayes with weight w"""
+    w_log = np.log10(weight)
+    return 10.**( np.log10(bayes) * (1+np.abs(w_log))**(1 - 2*(w_log<0) - (w_log==0) )  ) 
 
 
 def BayesTotalLog( bayes, axis=None ):
@@ -811,7 +535,7 @@ def BayesFactorTotal( bayes, mode='Jackknife', axis=None ):
 #################### MATHEMATICAL LIKELIHOOD OPERATIONS ####################
 ############################################################################
 
-
+### !!!! modify
 def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, smooth=True, dev=True, **kwargs ):
     """
     return likelihood for a region. if multiple models are provided, their likelihoods are summed together 
@@ -840,6 +564,7 @@ def LikelihoodRegion( region='IGM', models=['primordial'], weights=None, smooth=
     return res
 
 
+### !!!! modify
 def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=False, L0=1000., **scenario ):
     """
     return the full likelihood function for measure in the given scenario, i. e. convolution of P from all considered regions
@@ -930,6 +655,7 @@ def LikelihoodFull( measure='DM', redshift=0.1, nside_IGM=4, dev=False, N_inter=
     return P,x
 '''
 
+### !!!! modify
 def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nside_IGM=4, force=False, dev=False, progress_bar=False, N_inter=False, **scenario ):
     """
     return the likelihood function for measure expected to be observed by telescope in the given scenario
@@ -983,7 +709,7 @@ def LikelihoodTelescope( measure='DM', telescope='Parkes', population='SMD', nsi
     return res
 
 
-
+### !!! depreceated, remove
 def LikelihoodMeasureable( P=[], x=[], dev=[], min=None, max=None ):
     """    returns the renormalized part of full likelihood function that can be measured by telescopes, i. e. min <= x <= max """
     ## determine number of bins in result, roughly number of bins  min <= x <= max 
@@ -1010,31 +736,7 @@ def LikelihoodMeasureable( P=[], x=[], dev=[], min=None, max=None ):
     return res
 
 
-### do not load Likelhood inside function, pass it instead
-def LikelihoodMeasureable_old( min=None, max=None, telescope=None, population=None, **scenario ):
-    ### returns the part of full likelihood function above the accuracy of telescopes, renormalized to 1
-    ###  min: minimal value considered to be measurable
-    ###  kwargs: for the full likelihood
-    ###  telescope: indicate survey of telescope to be predicted (requires population. If None, redshift is required)
-    if telescope:
-        P, x = GetLikelihood_Telescope( telescope=telescope, population=population, **scenario )
-    else:
-        P, x = GetLikelihood_Full( **scenario )
-
-    if min:
-        ix, = np.where( x >= min )
-        x = x[ix]
-        P = P[ix[:-1]] ## remember, x is range of P, i. e. size+1
-        ## renormalize to 1
-    if max:
-        ix, = np.where( x <= max )
-        x = x[ix]
-        P = P[ix[:-1]] ## remember, x is range of P, i. e. size+1
-        ## renormalize to 1
-    P /= np.sum( P*np.diff(x) )
-    return P, x
-
-
+### !!!! modify
 def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', telescope='None', dev=False ):
     """
     returns likelihood functions of redshift for observed DMs (and taus)
@@ -1093,6 +795,7 @@ def LikelihoodRedshift( DMs=[], scenario={}, taus=None, population='flat', teles
         res.append(devs)
     return res
 
+### !!!! modify
 def LikelihoodCombined( DMs=[], RMs=[], zs=None, taus=None, scenario={}, prior=1., population='flat', telescope='None', measureable=True, force=False, dev=False, progress_bar=False ):
     """
     compute the likelihood of tuples of DM, RM (and tau) in a LoS scenario
@@ -1229,6 +932,9 @@ def BayesFactorCombined( DMs=[], RMs=[], zs=None, scenario1={}, scenario2={}, ta
 ############################################################################
 ######################## READ LIKELIHOODS FROM FILE ########################
 ############################################################################
+
+### !!!!! merge all this into a single simple read function in LikelihoodFunction class ???
+### !!!!! also merge Keys in convenience to single simple function
 
 def GetLikelihood_IGM( redshift=0., model='primordial', typ='far', nside=2**2, measure='DM', absolute=False, L0=1000. ):
     """ 
