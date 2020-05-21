@@ -1,5 +1,17 @@
+from sys import exit
 from PreFRBLE.physics import *
 from PreFRBLE.parameter import *
+
+############################################################################
+######################### FUNCTIONAL LABELS ################################
+############################################################################
+
+label_likelihood = {
+    'likelihood' : 'L',
+    'prior' : r"$\pi$",
+    'posterior' : "P",
+    'Bayes' : r"$\mathcal{B}$",
+}
 
 ############################################################################
 ############################ MODEL LABELS ##################################
@@ -14,21 +26,20 @@ labels = {
     'astrophysical_median' : 'astrophysical_median',
 
     ### Host
-    'JF12/Uniform' : 'Uniform',
-    'JF12/StarDensity_MW': 'star density',
-    'Heesen11/dirty': 'dwarf',
-    'Rodrigues18/smd': 'smd',
-    'Rodrigues18/sfr': 'sfr',
+    'JF12_Uniform' : 'Uniform',
+    'JF12_StarDensity_MW': 'star density',
+    'Heesen11_dirty': 'dwarf',
+    'Rodrigues18': 'Rodrigues18',
 
     ### Intervening Galaxy
     'Rodrigues18': 'Rodrigues18',
 
 
     ### Progenitor
-    'Piro18/uniform/JF12': 'uniform/MW',
-    'Piro18/uniform/Heesen11': 'uniform/dwarf',
-    'Piro18/wind': "Piro18",   #'wind',
-    'Piro18/wind+SNR': 'wind+SNR',
+    'Piro18_uniform_JF12': 'uniform/MW',
+    'Piro18_uniform_Heesen11': 'uniform/dwarf',
+    'Piro18_wind': "Piro18",   #'wind',
+    'Piro18_wind+SNR': 'wind+SNR',
 
     ### MW
     'JF12': 'ne2001&JF12',
@@ -37,8 +48,14 @@ labels = {
     ### telescopes
     'None': 'intrinsic',
     'ASKAP_incoh': 'ASKAP',
+    'ASKAP': 'ASKAP fly',
     'CHIME':'CHIME',
     'Parkes':'Parkes',
+
+    ### intrinsic redshift population
+    'SMD' : 'SMD', 
+    'SFR' : 'SFR',
+    'coV' : 'coV',
 }
 
 
@@ -57,56 +74,30 @@ def Label( model ):
 
     ## check for other models than standard models
     if 'alpha' in model: ### alpha models are not part of the standard models
-        label += r"$\alpha = \frac{{{}}}{{3}}$".format( int(model.split('alpha')[-1].split('-3rd')[0]) )
-    else: ## assume a standard model is combined with a modifier
-        label += Label( model.split('_')[0] )
-
-    ## check for model modifiers
-    if '_C' in model:
-        label += r", $f_{{\rm IGM}} = {:.1f}$".format( 1e-3*float(model.split('_C')[-1]) )
+        label += r"$\alpha = \frac{{{}}}{{3}}$".format( int(model.split('alpha')[-1].split('-3rd')[0]) ) ### extract alpha value and print neatly in Latex
 
     if label:
         return label 
     else:
-        print( "cannot label {}".format(model) )
-        return model
+        exit( "cannot label {}".format(model) )
         
         
 
-def LabelAddModel( label='', model='' ):
-    ## adds model to label of scenario, i. e. set of combined models
-    multi = len(model) > 1
-    no = len(model) == 0
+def LabelRegion( models=[] ):
+    """ label for set of combined models in region"""
+    multi = len(models) > 1
+    no = len(models) == 0
     
-    label += r"(" * multi
+    label = r"(" if multi else r""
     
-    for m in model:
-        label += Label(m)
-        label += r"+" * multi
+    for m in models:
+        label += Label(m) + r"+" * multi
     if multi:
-        label = label[:-1]
-        label += r")"
-    label += r"$\ast$" * ( not no )    
+        label = label[:-1]  + r")"
+    label += r"$\ast$" * ( not no )
     return label
 
 
-#def LabelScenario( model_Host=[], model_IGM=[], model_Local=[], model_MW=[], weight_Host='' ):
-def LabelScenario( **scenario ):
-    ## returns plotting label of scenario, i. e. set of combined models
-    label = ''
-    for region in regions:
-        model = scenario.get( region )
-        if model:
-            label = LabelAddModel( label, model )
-    return label[:-6]
-
-''' old and ugly
-    label = LabelAddModel( label, scenario['model_IGM'] )
-    label = LabelAddModel( label, [ m for m in scenario['model_Host'] ] )
-    label = LabelAddModel( label, scenario['model_Local'] )
-    label = LabelAddModel( label, scenario['model_MW'] )
-    return label[:-6]
-'''
 
 
 def UnitLabel( measure='' ):

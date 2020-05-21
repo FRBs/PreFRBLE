@@ -37,7 +37,7 @@ def PlotBayes( x=np.ones(1), bayes=np.ones(1), title=None, label=None, width=1.0
     lim = ax.get_ylim()
     ax.set_ylim(lim[0]*0.5, lim[1]*2)
 
-def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None, posterior=False ):
+def PlotBayes2D( bayes=[], dev=[], x=[], y=[], xlabel='', ylabel='', P_min=1e-5, graphs=False, plane=False, ax=None, posterior=False ):
     """
     Plot 2D distribution of Bayes factors for joint analysis of two parameters x and y
     
@@ -51,7 +51,6 @@ def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', 
         bayes factors for tuples of (x,y)
     dev : 2D array-like, shape( N_y, N_x ), optional
         deviation of log10 of bayes factors, only plotted for graphs=True
-    N_bayes : integer ## depreciated
     graphs : boolean
         indicate whether results should be drawn as graphs 
     plane : boolean
@@ -102,89 +101,52 @@ def PlotBayes2D( bayes=[], dev=[], N_bayes=1, x=[], y=[], xlabel='', ylabel='', 
 
 
 
-
-def PlotLikelihood( P=np.ones(1), x=np.arange(2), dev=None, density=True, cumulative=False, log=True, ax=None, measure=None, **kwargs ):
-    """
-    Plot likelihood function P(x) of measure
-
-    Parameters
-    ----------
-    dev : array-like, len(P), optional
-        give the relative deviation of the plotted likelihood
-    cumulative : boolean, 1, -1
-        if 1: plot cumulative likelihood starting from lowest x
-        if -1: plot cumulative likelihood starting from highest x
-        else: plot differential likelihood
-    log : boolean
-        indicates whether x is log-scaled
-    density : boolean
-        indicates whether P is probability density, i. e. sum(P*diff(x)) = 1, otherwise assume P is probability, i. e. sum(P) = 1 (Note that renormalization to 1 is not required)
-        ### chane to: indicates whether to plot density or probability (P always given as density)
-    measure : string
-        name of measure x
-    **kwargs :  for plt.plot ( or plt.errorbar, if dev is not None )
-
-    """
-    if cumulative:
-        density = False
+def PlotContributions( measure='', scenario=False, ax=None, dev=False, cumulative=False ): ### !!! move to likelihood.py
+    """ Plot likelihood function for all contributing models """
     if ax is None:
-        fig, ax = plt.subplots( )
-    xx = x[:-1] + np.diff(x)/2
-    PP = P.copy()
-    if log:  ## the probability for a measure to fall in bin depends on size of bin, for logarithmically scaled function, this changes, hence multiply by size of bin
-        PP *= np.diff(x)**(not density) * xx**density
-    if cumulative:
-        PP = np.cumsum( PP )
-        if cumulative == -1:
-            PP = 1 - PP
-    if log:
-        ax.loglog()
-    if dev is not None:
-        ax.errorbar( xx, PP, yerr=dev*PP, **kwargs  )
-    else:
-        ax.plot( xx, PP, **kwargs)
+        fig, ax = plt.subplots()
+    for region in scenario.regions:
+        models = scenario.regions.get( region )
+        if models:
+            for model in models:
+                properties = scenario.Properties( regions=False )
+                properties.update( {region:model} )
+                tmp = Scenario( **properties )
+                L = GetLikelihood( measure, tmp )
+                L.Plot( ax=ax, linestyle=linestyle_region[region], cumulative=cumulative ) # label=region+': '+Label(model)
+    ax.legend()
+    ax.set_title( "redshift = %.1f" % scenario.redshift )
+        
 
-    if measure is not None:
-        ax.set_xlabel( UnitLabel( measure ) , fontdict={'size':16 } )
-        ylabel = ( r"L(%s)" % label_measure[measure] ) 
-        if cumulative:
-#            ylabel = r"$L({0}${1}$) = \int${2}${{\rm d}}${1}".format( '>' if cumulative == -1 else '<', label_measure[measure], ylabel  )
-            ylabel = r"$L({0}${1}$)$".format( '>' if cumulative == -1 else '<', label_measure[measure]  )
-        elif log:
-            ylabel += ( r"$\times$%s" % label_measure[measure] ) if density else ( r"$\Delta$%s" % label_measure[measure] )
-        ax.set_ylabel( ylabel, fontdict={'size':18 } )
-    ax.tick_params(axis='both', which='major', labelsize=16)
-#    AllSidesTicks(ax)
 
-def PlotLikelihoodEvolution( measure='DM', dev=False, scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, force=False, alpha=0.5, **kwargs ):
+
+def PlotLikelihoodEvolution( measure='DM', scenario={}, ax=None, measureable=False, redshift_bins=redshift_bins, colorbar=True, alpha=0.5, **kwargs ):
     """ 
     Plot likelihood function of measure in different redshift_bins, expected for LoS scenario
 
     Parameters
     ----------
-    dev : boolean
-        if True, plot likelihood with deviation 
-    measurable : boolean
+    measureable : boolean
         if True, plot likelihood only for values accesible to telescope, renormalized to 1
     colorbar : boolean
         if True, plot a colorbar indicating colors for different values of redshift
-    force : boolean
-        if True, force computation of the full likelihood functions for measure in scenario
-    **kwargs : for PlotLikelihood
+    **kwargs : for LikelihoodFunction.Plot
 
     """
+    tmp = Scenario( redshift=1.0, **scenario.Properties( identifier=False ) )
     if ax is None:
         fig, ax = plt.subplots()
     for z, color in zip( redshift_bins, Rainbow(redshift_bins) ):
-        P = GetLikelihood_Full( dev=dev, redshift=z, measure=measure, force=force, **scenario )
+        tmp.redshift = z
+        L = GetLikelihood( measure, tmp )
         if measureable:
-            P = LikelihoodMeasureable( *P, min=measure_range[measure][0], max=measure_range[measure][1] )
-        PlotLikelihood( *P, ax=ax, measure=measure, color=color, alpha=alpha, **kwargs )
+            L.Measureable()
+        L.Plot( ax=ax, color=color, alpha=alpha, **kwargs )
+
     if colorbar:
         Colorbar( redshift_bins, label='redshift', ax=ax)
 
-
-def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwargs ):
+def PlotAverageEstimate( measure='DM', ax=None, scenario=False, sigma=1, errorstart=0, **kwargs ):
     """
     Plot average value of measure as function of redshift. 
     Estimate and deviation are obtained from likelihood function expected in LoS scenario
@@ -201,13 +163,17 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwa
     if ax is None:
         fig, ax = plt.subplots()
 
+    tmp = Scenario( redshift=1.0, **scenario.Properties( identifier=False ) )
+
     avg, dev = [], []
     for iz, (redshift, color) in enumerate( zip(redshift_bins, Rainbow(redshift_bins)) ):
-        P, x = GetLikelihood_Full( measure=measure, redshift=redshift, **scenario )
-        a, s = Likelihood2Expectation( P=P, x=x, density=True, log=True )
+        tmp.redshift = redshift
+        L = GetLikelihood( measure, tmp )
+        a, s = L.Expectation( sigma=sigma )
+
         avg.append(a)
         dev.append(s)
-    ## plot arrorbars, starting at the indicated position
+    ## plot errorbars, starting at the indicated position
     erb = ax.errorbar( redshift_bins[errorstart:], avg[errorstart:], np.array(dev).reshape([len(avg),2])[errorstart:].transpose(), **kwargs ) 
     ## draw the full line with the same kwargs
     kwargs_ = kwargs.copy()
@@ -225,42 +191,6 @@ def PlotAverageEstimate( measure='DM', ax=None, scenario={}, errorstart=0, **kwa
     ax.set_xlabel('redshift', fontdict={'size':16 })
     ax.set_ylabel('%s / %s' % (label_measure[measure], units[measure]), fontdict={'size':16 } )
 
-
-
-def PlotTelescope( measure='DM', measureable=False, telescope='Parkes', population='SMD', ax=None, scenario={}, force=False, dev=True, **kwargs ):
-    """ 
-    Plot distribution of measure expected to be observed by telescope, assuming a cosmic population and LoS scenario
-    
-    Parameters
-    ----------
-    measureable : boolean
-       if True, only plot likelihood for values of measure that can actually be observed by telescope
-    dev : boolean
-       indicate whether to plot deviation of likelihood function
-    **kwargs : for PlotLikelihood
-
-    """
-    if ax is None:
-        fig, ax = plt.subplots()
-    P = GetLikelihood_Telescope(measure=measure, telescope=telescope, population=population, force=force, dev=dev, **scenario )
-    if measureable:
-        P = LikelihoodMeasureable( *P, min=measure_range[measure][0], max=measure_range[measure][1] )
-    PlotLikelihood( *P, measure=measure, ax=ax, **kwargs )
-    plt.tight_layout()
-
-def PlotContributions( ax=None, dev=False, measure='DM', redshift=0.1, cumulative=False, N_inter=False, **scenario ):
-    """ Plot likelihood function for contributions to measure from all regions in scenario for LoS ending at redshift """
-    if ax is None:
-        fig, ax = plt.subplots()
-    for region in regions:
-        models = scenario.get( region )
-        if models:
-            for model in models:
-                P = GetLikelihood( region=region, model=model, measure=measure, redshift=redshift, N_inter=N_inter, dev=dev )
-                PlotLikelihood( *P, measure=measure, label=region+': '+Label(model) , linestyle=linestyle_region[region], ax=ax, cumulative=cumulative )
-    ax.legend()
-    ax.set_title( "redshift = %.1f" % redshift )
-#    fig.tight_layout()
 
 
 ############################################################################

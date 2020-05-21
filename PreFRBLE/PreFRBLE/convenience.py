@@ -5,97 +5,17 @@ from PreFRBLE.file_system import *
 from PreFRBLE.parameter import *
 
 
+from time import time
+def TimeElapsed( func, *args, **kwargs ):
+    """ measure time taken to compute function """
+    def MeasureTime():
+        t0 = time()
+        res = func( *args, **kwargs)
+        print( "{} took {} s".format( func.__name__, time()-t0 ) )
+        return res
+    return MeasureTime()
+        
 
-def CorrectScenario( measure='DM', **scenario ):
-    """ this function is used to correct scenario keys wenn reading data, since some models have output stored under different name """
-    
-    result = scenario.copy()
-    
-    ## combine primordial and alpha results, former for DM, SM and tau, latter for RM (is identical to primordial, which was also computed)
-    if 'RM' in measure:
-        pass
-        if 'IGM' in scenario:
-            if 'primordial' in scenario['IGM'][0]:
-                result['IGM'] = [scenario['IGM'][0].replace('primordial','alpha1-3rd')]
-    else:
-        if 'IGM' in scenario:
-            if measure in ['tau','SM']: ##  negligible contibution from IGM, hence doesn't require different models
-                scenario['IGM'] = ['primordial']
-            if 'alpha' in result['IGM'][0]:
-                result['IGM'] = [scenario['IGM'][0].replace(scenario['IGM'][0][:10], 'primordial' )]
-    return result
-
-
-## data keys inside likelihood files
-def KeyLocal( model='Piro18/wind', measure='DM', axis='P' ):
-    """ model key in likelihood_file_local """
-    return '/'.join( [ model, measure, axis ] )
-
-def KeyMilkyWay( model='JF12', measure='DM', axis='P', redshift=0.0  ):
-    """ MW model key in likelihood_file_galaxy """
-    return '/'.join( [ 'MilkyWay', model, measure, axis ] )
-
-def KeyHost( redshift=0.0, model='Rodrigues18/smd', measure='DM', axis='P' ):
-    """ host model key in likelihood_file_galaxy """
-    return '/'.join( [ 'Host', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
-
-def Keyinter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
-    """ intervening model key in likelihood_file_galaxy for case of galaxy intervening at redhsift """
-    return '/'.join( [ 'inter', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
-
-def KeyInter( redshift=0.0, model='Rodrigues18', measure='DM', axis='P' ):
-    """ intervening model key in likelihood_file_galaxy for case of galaxy at unknown redshift along LoS to redshift """
-    return '/'.join( [ 'Intervening', model, '%.4f' % np.round( redshift, redshift_accuracy ), measure, axis ] )
-
-
-def KeyIGM( redshift=0.1, model='primordial', typ='far', nside=2**2, measure='DM', axis='P' ):  ## nside=2**6
-    """ model key in likelihood_file_IGM """
-#    print( measure, model, redshift )
-    model_ = CorrectScenario( measure=measure, IGM=[model] )['IGM'][0]
-#    print(model_)
-    return '/'.join( [ model_, typ, str(nside), measure, '%.4f' % np.round( redshift, redshift_accuracy ), axis ] )
-
-def KeyRedshift( population='flat', telescope='none', axis='P' ):
-    """ model key in likelihood_file_redshift """
-    return '/'.join( [ population, telescope, axis] )
-
-#def KeyFull( measure='DM', axis='P', redshift=0.1, model_MW=['JF12'], model_IGM=['primordial'], model_Host=['Heesen11/IC10'], weight_Host='StarDensity_MW', model_Local=['Piro18/uniform_JF12'] ):
-def KeyFull( measure='DM', axis='P', redshift=0.1, N_inter=False, L0=1000, **scenario ):
-    """ scenario key in likelihood_file_Full """
-    scenario_ = CorrectScenario( measure, **scenario )
-    models = []
-    for region in regions:
-        model = scenario_.get( region )
-        if model:
-            model_ = model.copy()
-            if region == 'Inter': ## in order to distinguish between intervening and host galaxies, which may use the same model
-                for i in range(len(model)):
-                    model_[i] += '_{}Inter'.format( 'N' if N_inter else '' )
-            elif region == 'IGM' and measure == 'tau':  ## tau depends on L0, which can be changed in post-processing
-                for i in range(len(model)):
-                    model_[i] += '_L0{:.0f}kpc'.format( L0 )  ### initially computed assuming L0 = 1 Mpc
-            models = np.append( models, model_ )
-    models = np.append( models, [ np.round( redshift, redshift_accuracy ), measure, axis ] )
-    return '/'.join( models )
-
-
-def KeyTelescope( measure='DM', axis='P', telescope='Parkes', population='SMD', N_inter=False, L0=1000, **scenario ):
-    """ scenario key in likelihood_file_telescope """
-    scenario_ = CorrectScenario( measure, **scenario )
-    models = [ telescope, population ]
-    for region in regions:
-        model = scenario_.get( region )
-        if model:
-            model_ = model.copy()
-            if region == 'Inter': ## in order to distinguish between intervening and host galaxies, which may use the same model
-                for i in range(len(model)):
-                    model_[i] += '_{}Inter'.format( 'N' if N_inter else '' )
-            elif region == 'IGM' and measure == 'tau':  ## tau depends on L0, which can be changed in post-processing
-                for i in range(len(model)):
-                    model_[i] += '_L0{:.0f}kpc'.format( L0 )  ### initially computed assuming L0 = 1 Mpc
-            models = np.append( models, model_ )
-    models = np.append( models, [ measure, axis ] )
-    return '/'.join( models )
 
 
 from time import sleep
@@ -109,16 +29,17 @@ def Write2h5( filename='', datas=[], keys=[] ):
     ### https://stackoverflow.com/questions/47979751/recover-data-from-corrupted-file/61147632?noredirect=1#comment108190378_61147632
     tries = 0
     while tries < 30:
-        try:
+        #try:
             with h5.File( filename, 'a' ) as f:
                 for data, key in zip( datas, keys ):
                     try:
+                        f[key][()]
                         f.__delitem__( key )
                     except:
                         pass
                     f.create_dataset( key, data=data  )
             break
-        except:
+        #except:
             sleep(3e-2)
             tries += 1
             pass
@@ -264,23 +185,24 @@ def first(iterable, condition = lambda x: True):
     """
     Returns the first item in the `iterable` that satisfies the `condition`.
     If the condition is not given, returns the first item of the iterable.
-    Raises `StopIteration` if no item satysfing the condition is found.
+    Returns -1 if no item satysfing the condition is found.
 
     >>> first( (1,2,3), condition=lambda x: x % 2 == 0)
     2
     >>> first(range(3, 100))
     3
-    >>> first( () )
-    Traceback (most recent call last):
-    ...
-    StopIteration
+    >>> first( (1,2,3), condition=lambda x: x > 9)
+    -1
+
     
     THANKS TO Caridorc
     https://stackoverflow.com/questions/2361426/get-the-first-item-from-an-iterable-that-matches-a-condition
     
     """
-
-    return next(x for x in iterable if condition(x))
+    try:
+        return next(x for x in iterable if condition(x))
+    except:
+        return -1
 
 
 

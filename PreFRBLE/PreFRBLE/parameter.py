@@ -1,17 +1,19 @@
 
-redshift_accuracy = 4 # number deciamls for redshift accuracy  (to prevent numerical misidentification of redshifts)
+redshift_accuracy = 4 # number decimals for redshift accuracy  (to prevent numerical misidentification of redshifts)
 
 ## regions along LoS
 regions = ['MW', 'IGM', 'Inter', 'Host', 'Local']
 linestyle_region = {'MW':'--', 'IGM':'-', 'Inter':":", 'Host':"-.", 'Local':"-."}
 N_sample = {  ## !!! hardcoded, find a better solution
-    'MW' : 1,
+#    'MW' : 1,
     'IGM' : 49152,
     'Host' : 10**7,
     'Inter' : 10**7,
+    'inter' : 10**7,
     'Local' : 10**6,
     'population' : 10**7
 }
+N_sample['Full'] = min( list( N_sample.values() ) )
 
 N_population = { ## number of events in sample to estimate likelihood of host redshift
     'SFR': { 'None': 10**7, 'ASKAP_incoh' : 9176 , 'CHIME' : 118822, 'Parkes': 134915 },
@@ -25,7 +27,7 @@ models_MW = ['JF12']
 models_IGM = ['primordial', 'astrophysical_mean', 'astrophysical_median', 'alpha1-3rd', 'alpha2-3rd', 'alpha3-3rd', 'alpha4-3rd', 'alpha5-3rd', 'alpha6-3rd', 'alpha7-3rd', 'alpha8-3rd', 'alpha9-3rd']
 models_Host = ['Rodrigues18']
 models_Inter = ['Rodrigues18']
-models_Local = [ 'Piro18/wind', 'Piro18/wind+SNR']
+models_Local = [ 'Piro18_wind', 'Piro18_wind+SNR']
 
 
 ## telescopes and cosmic population scenarios

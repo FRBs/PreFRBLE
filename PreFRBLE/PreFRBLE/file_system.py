@@ -33,6 +33,17 @@ likelihood_file_Telescope = root_likelihood+'observables_likelihood_Telescope.h5
 likelihood_file_telescope = root_likelihood+'observables_likelihood_telescope.h5'  ## !!! depreceated, remove 
 
 
+likelihood_files = {
+    'IGM' : likelihood_file_IGM,
+    'Local' : likelihood_file_Local,
+    'Host' : likelihood_file_Host,
+    'Inter' : likelihood_file_Inter,
+    'inter' : likelihood_file_inter,
+    'redshift' : likelihood_file_redshift,
+    'Full' : likelihood_file_Full,
+    'Telescope' : likelihood_file_Telescope,
+}
+
 ############################################################################
 ############################### OTHER FILES ################################
 ############################################################################
