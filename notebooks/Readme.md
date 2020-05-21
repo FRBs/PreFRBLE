@@ -12,3 +12,4 @@ Likelihood.ipynb
 
 The other notebooks show inferences as presented by Hackstein et al. 2020a,b
 
+The Monte-Carlo simulations for the individual models can be found in the _model_ subfolder

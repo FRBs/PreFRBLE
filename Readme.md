@@ -30,9 +30,10 @@ source .activate_PreFRBLE
 Then you should be able to import the PreFRBLE package in python
 
 python
+
 import PreFRBLE
 
-If you make changes to the source code in PreFRBLE/PreFRBLE, these can be applied by running the setup again (type anything, bot not "y", when asked about new environment)
+If you make changes to the source code in PreFRBLE/PreFRBLE, these can be applied by running the setup again (type anything, but not "y", when asked about new environment)
 
 General usage is explained in the jupyter notebooks found in notebooks/. Start the jupyter notebook server with
 
@@ -80,8 +81,6 @@ Milky Way:
 ----------------------------------------------------------------------------------------------
 TODO
 ----------------------------------------------------------------------------------------------
-
--- create likelihood class and replace P, x, dev (and other included functions) in all procedures 
 
 -- PlotLikelihood: correct density flag
 
