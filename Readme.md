@@ -16,7 +16,11 @@ Clone the git repository with
 git clone https://github.com/shackste/PreFRBLE
 
 
-If you want to install PreFRBLE in an existing environment, simply enter the folder and run
+If you want to install PreFRBLE in an existing environment, simply enter the folder
+
+cd PreFRBLE
+
+and run
 
 pip install PreFRBLE/
 
