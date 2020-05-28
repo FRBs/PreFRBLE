@@ -11,14 +11,17 @@ PrEFRBLE is a python package build to compare observations of Fast Radio Bursts 
 INSTALLATION
 ----------------------------------------------------------------------------------------------
 
-If you want to install PreFRBLE in an existing environment, simply run
+Clone the git repository with
 
-pip install $PreFRBLE_DIR/PreFRBLE
-
-where you loaded the git repository to $PreFRBLE_DIR.
+git clone https://github.com/shackste/PreFRBLE
 
 
-However, it is advised to use a virtual environment to not interfer with your other programs. This can be done automatically by running
+If you want to install PreFRBLE in an existing environment, simply enter the folder and run
+
+pip install PreFRBLE/
+
+
+However, it is advised to use a virtual environment. This can be created automatically by running
 
 bash setup_PreFRBLE.sh
 
@@ -32,6 +35,8 @@ Then you should be able to import the PreFRBLE package in python
 python
 
 import PreFRBLE
+
+
 
 If you make changes to the source code in PreFRBLE/PreFRBLE, these can be applied by running the setup again (type anything, but not "y", when asked about new environment)
 
