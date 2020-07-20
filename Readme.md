@@ -91,8 +91,6 @@ Milky Way:
 TODO
 ----------------------------------------------------------------------------------------------
 
--- create likelihood class and replace P, x, dev (and other included functions) in all procedures 
-
 -- PlotLikelihood: correct density flag
 
 -- change PreFRBLE to PrEFRBLE everywhere
