@@ -5,7 +5,17 @@
 
 PrEFRBLE is a python package build to compare observations of Fast Radio Bursts (FRBs) to theoretical predictions. To this end, it predicts the contribution from the different regions along the line of sight to measures observed with FRBs. The results for different contributors are combined to predict the measurement in different scenarios for the full LoS. Finally, observations are probed against thse predictions to obtain the model likelihood.
 
+Brought to you by:
 
+Stefan Hackstein
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3862636.svg)](https://doi.org/10.5281/zenodo.3862636)
+
+For more information, see 
+
+[!Hackstein et al. 2019](https://doi.org/10.1093/mnras/stz2033)
+
+Please cite these works in publications using this software.
 
 ----------------------------------------------------------------------------------------------
 INSTALLATION
