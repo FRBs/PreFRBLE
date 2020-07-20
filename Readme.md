@@ -11,11 +11,15 @@ Stefan Hackstein
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3862636.svg)](https://doi.org/10.5281/zenodo.3862636)
 
-For more information, see 
+----------------------------------------------------------------------------------------------
+REFERENCES
+----------------------------------------------------------------------------------------------
+
+If using PrEFRBLE in a journal article, please remember to cite these references:
 
 [Hackstein et al. 2019](https://doi.org/10.1093/mnras/stz2033)
 
-Please cite these works in publications using this software.
+
 
 ----------------------------------------------------------------------------------------------
 INSTALLATION
