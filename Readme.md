@@ -13,7 +13,7 @@ Stefan Hackstein
 
 For more information, see 
 
-[!Hackstein et al. 2019](https://doi.org/10.1093/mnras/stz2033)
+[Hackstein et al. 2019](https://doi.org/10.1093/mnras/stz2033)
 
 Please cite these works in publications using this software.
 
