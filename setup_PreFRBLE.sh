@@ -35,7 +35,7 @@ then
     
     ## install python packages used not by PreFRBLE, but by notebooks. If this fails, continue with install_PreFRBLE.sh
     pip3 install numpy cython ipython jupyter scipy pandas statsmodels    
-    echo "environment is created. If following fails, run setup again and skip creating new environment
+    echo "environment is created. If following fails, run setup again and skip creating new environment"
 fi
 
 
