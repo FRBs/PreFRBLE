@@ -51,7 +51,7 @@ def LikelihoodsAdd( *Ls, shrink=False, weights=None, dev_weights=None, renormali
         if renormalize: ## maybe renormalized to new value
             L.Renormalize( renormalize ) ### !!! depreceated
         if smooth: ### !!! depreceated
-            L.smooth()
+            L.Smooth()
         return L
 
     ## new function support
@@ -160,7 +160,7 @@ def LikelihoodsConvolve( *Ls, dev=True, N=50000, absolute=False, renormalize=Fal
 
     ## compute likelihood
     L = LikelihoodFunction( measure=Ls[0].measure, typ=Ls[0].typ )
-    L.Likelihood( np.abs( np.sum( samples, axis=0 ) ), log=log, bins=Ls[0].P.size )
+    L.Likelihood( np.abs( np.sum( samples, axis=0 ) ), log=Ls[0].log, bins=Ls[0].P.size )
     if smooth:
         L.Smooth()
     L.ShotNoise( N=N )
@@ -314,10 +314,6 @@ def LikelihoodRegion( region='', measure='', scenario=False ):
         properties.update( {region:model} )
         tmp = Scenario( **properties )
         L = GetLikelihood( measure=measure, scenario=tmp )
-        kw = kwargs.copy()
-        kw[region] = model
-        scenario = Scenario( **kw )
-        L = LikelihoodFunction( scenario=scenario )
         Ls.append(L)
     L_ = LikelihoodsAdd( *Ls )
     return L
