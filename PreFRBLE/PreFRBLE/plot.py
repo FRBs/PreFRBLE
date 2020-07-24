@@ -115,7 +115,7 @@ def PlotContributions( measure='', scenario=False, ax=None, dev=False, cumulativ
                 L = GetLikelihood( measure, tmp )
                 L.Plot( ax=ax, linestyle=linestyle_region[region], cumulative=cumulative ) # label=region+': '+Label(model)
     ax.legend()
-    ax.set_title( "redshift = %.1f" % scenario.redshift )
+    ax.set_title( "redshift = %.1f" % scenario.redshift if scenario.redshift else "%s: %s" % ( scenario.telescope, scenario.population ) )
         
 
 

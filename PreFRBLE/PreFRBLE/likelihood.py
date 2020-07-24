@@ -721,6 +721,8 @@ def GetLikelihood( measure='', scenario=False, force=False, echo=False ):
         if echo:
             print("post-processing modifiers")
         ## check for post-processing modifiers
+        if region == 'IGM' and scenario.f_IGM:
+            L.Shift( scenario.f_IGM )
         if region == 'IGM' and measure == 'tau' and scenario.IGM_outer_scale:
             L.Shift( (scenario.IGM_outer_scale/1000)**(-2./3) ) ## outer scale in kpc, original was computed assuming 1 Mpc
         if region == 'Inter' and scenario.N_inter:

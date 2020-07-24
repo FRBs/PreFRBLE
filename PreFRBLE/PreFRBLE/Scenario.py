@@ -208,7 +208,7 @@ class Scenario:
         
         
         keys = list( scenario.regions.keys() )
-        extra = len(keys) > 1
+        extra = len(keys) > 1 or self.redshift == False
         for region in np.sort( keys ):
             key_elements.append( '_'.join( scenario.regions[region] ) ) ## combine all models assumed for each region (e. g. to allow consideration of multiple source environments)
             
