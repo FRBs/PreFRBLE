@@ -31,6 +31,7 @@ pip install $PreFRBLE_DIR/PreFRBLE
 
 where you loaded the git repository to $PreFRBLE_DIR.
 
+Don't forget to adjust the directory in PreFRBLE/PreFRBLE/file_system.py before installation
 
 However, it is advised to use a virtual environment to not interfer with your other programs. This can be done automatically by running
 
