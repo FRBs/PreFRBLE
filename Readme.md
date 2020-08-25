@@ -19,6 +19,8 @@ If using PrEFRBLE in a journal article, please remember to cite these references
 
 [Hackstein et al. 2019](https://doi.org/10.1093/mnras/stz2033)
 
+[Hackstein et al. 2020](https://doi.org/10.1093/mnras/staa2572)
+
 
 
 ----------------------------------------------------------------------------------------------
